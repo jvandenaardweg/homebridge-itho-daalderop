@@ -1,0 +1,20 @@
+{
+  "pluginAlias": "HomebridgeIthoDaalderop",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Please [read the README](https://github.com/jvandenaardweg/homebridge-itho-daalderop#readme) of the plugin for more information and instructions on how to configure it.",
+
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Bridge name",
+        "type": "string",
+        "required": true,
+        "placeholder": "Itho Daalderop",
+        "description": "You'll see this name when you add the bridge in your Home app and also in the logs within Homebridge.",
+        "default": "Itho Daalderop"
+      }
+    }
+  }
+}
