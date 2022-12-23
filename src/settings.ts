@@ -11,3 +11,6 @@ export const PLATFORM_NAME = 'HomebridgeIthoDaalderop';
 export const PLUGIN_NAME = 'homebridge-itho-daalderop';
 
 export const MANUFACTURER = 'Itho Daalderop';
+
+export const DEFAULT_FAN_NAME = 'Mechanical Ventilation';
+export const DEFAULT_AIR_QUALITY_SENSOR_NAME = 'Air Quality Sensor';

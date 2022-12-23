@@ -9,7 +9,12 @@ import {
   APIEvent,
 } from 'homebridge';
 
-import { PLATFORM_NAME, PLUGIN_NAME } from '@/settings';
+import {
+  DEFAULT_AIR_QUALITY_SENSOR_NAME,
+  DEFAULT_FAN_NAME,
+  PLATFORM_NAME,
+  PLUGIN_NAME,
+} from '@/settings';
 import { FanAccessory } from '@/fan-accessory';
 import { ZodError } from 'zod';
 import { ConfigSchema, configSchema } from './config.schema';
@@ -56,16 +61,12 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
         return;
       }
 
-      this.addFanAccessory(
-        'Mechanical Ventilation',
-        this.api.hap.uuid.generate('Mechanical Ventilation'),
-      );
+      this.addFanAccessory(DEFAULT_FAN_NAME, this.api.hap.uuid.generate(DEFAULT_FAN_NAME));
 
       this.addAirQualitySensor(
-        'Air Quality Sensor',
-        this.api.hap.uuid.generate('Air Quality Sensor'),
+        DEFAULT_AIR_QUALITY_SENSOR_NAME,
+        this.api.hap.uuid.generate(DEFAULT_AIR_QUALITY_SENSOR_NAME),
       );
-      // this.addHumiditySensor('Humidity Sensor', this.api.hap.uuid.generate('Humidity Sensor'));
     });
 
     // On Homebridge shutdown, cleanup some things
@@ -135,7 +136,6 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
 
         // Create the accessory handler for the newly create accessory
         this.attachFanAccessoryToPlatform(newAccessory);
-        // this.attachCarbonDioxideSensorAccessoryToPlatform('CO2 Sensor', newAccessory);
 
         // Link the accessory to your platform
         this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [newAccessory]);
@@ -183,7 +183,6 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
         );
 
         // Create the accessory handler for the newly create accessory
-        // this.attachFanAccessoryToPlatform(newAccessory);
         this.attachAirQualitySensorAccessoryToPlatform(newAccessory);
 
         // Link the accessory to your platform
