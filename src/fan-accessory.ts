@@ -32,9 +32,11 @@ export class FanAccessory {
     stateSubscription.on('message', (_, message) => {
       const messageString = message.toString();
 
+      this.log.debug(`Received new state payload: ${messageString}`);
+
       const rotationSpeed = Math.round(Number(messageString) / 2.54); // TODO: is this correct?
 
-      this.service.setCharacteristic(this.platform.Characteristic.RotationSpeed, rotationSpeed);
+      this.setRotationSpeed(rotationSpeed);
     });
 
     const informationService = this.accessory.getService(
@@ -114,6 +116,21 @@ export class FanAccessory {
         this.platform.log.debug(loggerPrefix, ...parameters);
       },
     };
+  }
+
+  setRotationSpeed(value: number): void {
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.RotationSpeed,
+    ).value;
+
+    if (currentValue === value) {
+      this.log.debug(`RotationSpeed: Already set to: ${value}`);
+      return;
+    }
+
+    this.log.debug(`RotationSpeed: Setting to: ${value} (was: ${currentValue})`);
+
+    this.service.setCharacteristic(this.platform.Characteristic.RotationSpeed, value);
   }
 
   /**

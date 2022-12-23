@@ -29,30 +29,23 @@ export class AirQualitySensorAccessory {
 
     const statusSubscription = this.mqttClient.subscribe('itho/ithostatus');
 
+    // Update the characteristic values when we receive a new message from mqtt
     statusSubscription.on('message', (_, message) => {
+      this.log.debug(`Received new status payload: ${message.toString}`);
+
       const data = parseMQTTMessage<IthoStatusPayload>(message);
+
+      this.log.debug(`Parsed new status payload to: ${JSON.stringify(data)}`);
 
       const airQuality = this.getAirQualityFromStatusPayload(data);
       const currentRelativeHumidity = data.hum || 0;
       const currentTemperature = data.temp || 0;
       const carbonDioxideLevel = data['CO2level (ppm)'] || 0;
 
-      this.service.setCharacteristic(this.platform.Characteristic.AirQuality, airQuality);
-
-      this.service.setCharacteristic(
-        this.platform.Characteristic.CurrentRelativeHumidity,
-        currentRelativeHumidity,
-      );
-
-      this.service.setCharacteristic(
-        this.platform.Characteristic.CurrentTemperature,
-        currentTemperature,
-      );
-
-      this.service.setCharacteristic(
-        this.platform.Characteristic.CarbonDioxideLevel,
-        carbonDioxideLevel,
-      );
+      this.setAirQuality(airQuality);
+      this.setCurrentRelativeHumidity(currentRelativeHumidity);
+      this.setCurrentTemperature(currentTemperature);
+      this.setCarbonDioxideLevel(carbonDioxideLevel);
     });
 
     const informationService = this.accessory.getService(
@@ -76,28 +69,23 @@ export class AirQualitySensorAccessory {
     // Set accessory information
     this.informationService = informationService;
 
-    // https://developers.homebridge.io/#/service/AirQualitySensor
     this.service =
       this.accessory.getService(this.platform.Service.AirQualitySensor) ||
       this.accessory.addService(this.platform.Service.AirQualitySensor);
 
     // REQUIRED
 
-    // https://developers.homebridge.io/#/characteristic/AirQuality
+    // Set a default AirQuality value on instantiation
     this.service.setCharacteristic(
       this.platform.Characteristic.AirQuality,
       this.platform.Characteristic.AirQuality.GOOD,
     );
 
     // OPTIONAL
+    // this.service.setCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, 0); // 0 - 100000 ppm
+    // this.service.setCharacteristic(this.platform.Characteristic.CurrentTemperature, 0); // -270 - 100, minStep 0.1
+    // this.service.setCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, 0); // 0-100
 
-    // https://developers.homebridge.io/#/characteristic/CarbonDioxideLevel
-    this.service.setCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, 0); // 0 - 100000 ppm
-    // this.service.setCharacteristic(this.platform.Characteristic.CarbonDioxidePeakLevel, 0); // 0 - 100000 ppm
-
-    this.service.setCharacteristic(this.platform.Characteristic.CurrentTemperature, 0); // -270 - 100, minStep 0.1
-
-    this.service.setCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, 0); // 0-100
     this.service.setCharacteristic(this.platform.Characteristic.StatusActive, true); // 0-100
 
     // Set the service name, this is what is displayed as the default name on the Home app
@@ -110,6 +98,66 @@ export class AirQualitySensorAccessory {
     this.service
       .getCharacteristic(this.platform.Characteristic.StatusActive)
       .onGet(this.handleGetStatusActive.bind(this));
+  }
+
+  setAirQuality(value: number): void {
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.AirQuality,
+    ).value;
+
+    if (currentValue === value) {
+      this.log.debug(`AirQuality: Already set to: ${value}`);
+      return;
+    }
+
+    this.log.debug(`AirQuality: Setting to: ${value} (was: ${currentValue})`);
+
+    this.service.setCharacteristic(this.platform.Characteristic.AirQuality, value);
+  }
+
+  setCurrentRelativeHumidity(value: number): void {
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.CurrentRelativeHumidity,
+    ).value;
+
+    if (currentValue === value) {
+      this.log.debug(`CurrentRelativeHumidity: Already set to: ${value}`);
+      return;
+    }
+
+    this.log.debug(`CurrentRelativeHumidity: Setting to: ${value} (was: ${currentValue})`);
+
+    this.service.setCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, value);
+  }
+
+  setCurrentTemperature(value: number): void {
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.CurrentTemperature,
+    ).value;
+
+    if (currentValue === value) {
+      this.log.debug(`CurrentTemperature: Already set to: ${value}`);
+      return;
+    }
+
+    this.log.debug(`CurrentTemperature: Setting to: ${value} (was: ${currentValue})`);
+
+    this.service.setCharacteristic(this.platform.Characteristic.CurrentTemperature, value);
+  }
+
+  setCarbonDioxideLevel(value: number): void {
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.CarbonDioxideLevel,
+    ).value;
+
+    if (currentValue === value) {
+      this.log.debug(`CarbonDioxideLevel: Already set to: ${value}`);
+      return;
+    }
+
+    this.log.debug(`CarbonDioxideLevel: Setting to: ${value} (was: ${currentValue})`);
+
+    this.service.setCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, value);
   }
 
   getAirQualityFromStatusPayload(data: IthoStatusPayload): number {
@@ -155,17 +203,17 @@ export class AirQualitySensorAccessory {
    * Do not return anything from this method. Otherwise we'll get this error:
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
    */
-  handleSetAirQuality(value: CharacteristicValue): void {
-    // handle
+  // handleSetAirQuality(value: CharacteristicValue): void {
+  //   // handle
 
-    // TODO: this is not handled within homekit, we should handle this with the API ourselves
+  //   // TODO: this is not handled within homekit, we should handle this with the API ourselves
 
-    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+  //   // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
 
-    this.log.debug('handleSetAirQuality ->', value);
+  //   this.log.debug('handleSetAirQuality ->', value);
 
-    this.service.setCharacteristic(this.platform.Characteristic.AirQuality, value);
-  }
+  //   this.service.setCharacteristic(this.platform.Characteristic.AirQuality, value);
+  // }
 
   /**
    * Handle the "GET" requests from HomeKit
