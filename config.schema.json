@@ -14,6 +14,13 @@
         "placeholder": "Itho Daalderop",
         "description": "You'll see this name when you add the bridge in your Home app and also in the logs within Homebridge.",
         "default": "Itho Daalderop"
+      },
+      "ip": {
+        "type": "string",
+        "title": "IP Address",
+        "placeholder": "192.168.0.10",
+        "format": "ipv4",
+        "required": true
       }
     }
   }

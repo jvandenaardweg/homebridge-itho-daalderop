@@ -1,4 +1,4 @@
-import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
+import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homebridge';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext } from './types';
@@ -57,6 +57,7 @@ export class FanAccessory {
 
     // Set the service name, this is what is displayed as the default name on the Home app
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.displayName);
+
     this.service.setCharacteristic(
       this.platform.Characteristic.Active,
       this.platform.Characteristic.Active.ACTIVE,
@@ -69,30 +70,31 @@ export class FanAccessory {
       this.platform.Characteristic.TargetFanState,
       this.platform.Characteristic.TargetFanState.AUTO,
     );
-    this.service.setCharacteristic(
-      this.platform.Characteristic.LockPhysicalControls,
-      this.platform.Characteristic.LockPhysicalControls.CONTROL_LOCK_DISABLED,
-    );
-    this.service.setCharacteristic(
-      this.platform.Characteristic.RotationDirection,
-      this.platform.Characteristic.RotationDirection.CLOCKWISE,
-    );
 
     this.service.setCharacteristic(this.platform.Characteristic.RotationSpeed, 0);
-    this.service.setCharacteristic(
-      this.platform.Characteristic.SwingMode,
-      this.platform.Characteristic.SwingMode.SWING_DISABLED,
-    );
 
-    // Register handlers for the On/Off Characteristic
     this.service
-      .getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.handleSetOn.bind(this))
-      .onGet(this.handleGetOn.bind(this));
+      .getCharacteristic(this.platform.Characteristic.Active)
+      .onSet(this.handleSetActive.bind(this))
+      .onGet(this.handleGetActive.bind(this));
+
+    this.service
+      .getCharacteristic(this.platform.Characteristic.RotationSpeed)
+      .onSet(this.handleSetRotationSpeed.bind(this))
+      .onGet(this.handleGetRotationSpeed.bind(this));
+
+    this.service
+      .getCharacteristic(this.platform.Characteristic.CurrentFanState)
+      .onGet(this.handleGetCurrentFanState.bind(this));
+
+    this.service
+      .getCharacteristic(this.platform.Characteristic.TargetFanState)
+      .onSet(this.handleSetTargetFanState.bind(this))
+      .onGet(this.handleGetTargetFanState.bind(this));
   }
 
   get log() {
-    const loggerPrefix = `[Energy Socket: ${this.accessory.displayName}] -> `;
+    const loggerPrefix = `[Fan: ${this.accessory.displayName}] -> `;
 
     return {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,12 +123,39 @@ export class FanAccessory {
    * Do not return anything from this method. Otherwise we'll get this error:
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
    */
-  async handleSetOn(value: CharacteristicValue): Promise<void> {
+  async handleSetRotationSpeed(value: CharacteristicValue): Promise<void> {
     // handle
 
-    await Promise.resolve(value);
+    this.log.debug('handleSetRotationSpeed', value);
 
-    return;
+    // this.service.setCharacteristic(this.platform.Characteristic.RotationSpeed, value);
+  }
+
+  /**
+   * Handle "SET" requests from HomeKit
+   * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
+   *
+   * Do not return anything from this method. Otherwise we'll get this error:
+   * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
+   */
+  async handleSetActive(value: CharacteristicValue): Promise<void> {
+    // handle
+
+    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+
+    this.log.debug('handleSetActive', value);
+
+    // this.service.setCharacteristic(this.platform.Characteristic.Active, value);
+  }
+
+  async handleSetTargetFanState(value: CharacteristicValue): Promise<void> {
+    // handle
+
+    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+
+    this.log.debug('handleSetTargetFanState', value);
+
+    // this.service.setCharacteristic(this.platform.Characteristic.TargetFanState, value);
   }
 
   /**
@@ -142,9 +171,57 @@ export class FanAccessory {
    * @example
    * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
    */
-  async handleGetOn(): Promise<CharacteristicValue> {
+  handleGetActive(): Nullable<CharacteristicValue> {
     // handle
 
-    return Promise.resolve(true);
+    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+
+    const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
+
+    this.log.debug('handleGetActive', currentValue);
+
+    return currentValue;
+  }
+
+  async handleGetRotationSpeed(): Promise<Nullable<CharacteristicValue>> {
+    // handle
+
+    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.RotationSpeed,
+    ).value;
+
+    this.log.debug('handleGetRotationSpeed', currentValue);
+
+    return Promise.resolve(currentValue);
+  }
+
+  async handleGetCurrentFanState(): Promise<Nullable<CharacteristicValue>> {
+    // handle
+
+    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.CurrentFanState,
+    ).value;
+
+    this.log.debug('handleGetCurrentFanState', currentValue);
+
+    return Promise.resolve(currentValue);
+  }
+
+  async handleGetTargetFanState(): Promise<Nullable<CharacteristicValue>> {
+    // handle
+
+    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.TargetFanState,
+    ).value;
+
+    this.log.debug('handleGetTargetFanState', currentValue);
+
+    return Promise.resolve(currentValue);
   }
 }

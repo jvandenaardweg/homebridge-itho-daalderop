@@ -1,4 +1,4 @@
-import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
+import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homebridge';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext } from './types';
@@ -9,7 +9,7 @@ import { PLATFORM_MANUFACTURER } from './settings';
  * An instance of this class is created for each accessory your platform registers
  * Each accessory may expose multiple services of different service types.
  */
-export class TemperatureSensorAccessory {
+export class AirQualitySensorAccessory {
   private service: Service;
   private informationService: Service | undefined;
 
@@ -17,14 +17,7 @@ export class TemperatureSensorAccessory {
     private readonly platform: HomebridgeIthoDaalderop,
     private readonly accessory: PlatformAccessory<IthoDaalderopAccessoryContext>,
   ) {
-    // const properties = accessory.context.energySocket;
-
-    // this.properties = properties;
-    // this.config = properties.config;
-
     this.log.debug(`Initializing platform accessory`);
-
-    // this.energySocketApi = api;
 
     const informationService = this.accessory.getService(
       this.platform.Service.AccessoryInformation,
@@ -50,50 +43,44 @@ export class TemperatureSensorAccessory {
     // Set accessory information
     this.informationService = informationService;
 
-    // https://developers.homebridge.io/#/service/TemperatureSensor
+    // https://developers.homebridge.io/#/service/AirQualitySensor
     this.service =
-      this.accessory.getService(this.platform.Service.TemperatureSensor) ||
-      this.accessory.addService(this.platform.Service.TemperatureSensor);
+      this.accessory.getService(this.platform.Service.AirQualitySensor) ||
+      this.accessory.addService(this.platform.Service.AirQualitySensor);
 
     // REQUIRED
 
-    // https://developers.homebridge.io/#/characteristic/CurrentTemperature
-    this.service.setCharacteristic(this.platform.Characteristic.CurrentTemperature, 0); // -270 - 100, minStep 0.1
+    // https://developers.homebridge.io/#/characteristic/AirQuality
+    this.service.setCharacteristic(
+      this.platform.Characteristic.AirQuality,
+      this.platform.Characteristic.AirQuality.GOOD,
+    );
 
     // OPTIONAL
+
+    // https://developers.homebridge.io/#/characteristic/CarbonDioxideLevel
+    this.service.setCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, 0); // 0 - 100000 ppm
+    this.service.setCharacteristic(this.platform.Characteristic.CarbonDioxidePeakLevel, 0); // 0 - 100000 ppm
+
+    this.service.setCharacteristic(this.platform.Characteristic.CurrentTemperature, 0); // -270 - 100, minStep 0.1
+
+    this.service.setCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, 0); // 0-100
+    this.service.setCharacteristic(this.platform.Characteristic.StatusActive, true); // 0-100
 
     // Set the service name, this is what is displayed as the default name on the Home app
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.displayName);
 
-    this.service.setCharacteristic(
-      this.platform.Characteristic.Active,
-      this.platform.Characteristic.Active.ACTIVE,
-    );
-
-    // https://developers.homebridge.io/#/characteristic/StatusFault
-    this.service.setCharacteristic(this.platform.Characteristic.StatusFault, 0); // 0 = No Fault, 1 = General Fault
-
-    // https://developers.homebridge.io/#/characteristic/StatusLowBattery
-    this.service.setCharacteristic(
-      this.platform.Characteristic.StatusLowBattery,
-      this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
-    ); // 0 = Battery level is normal, 1 = Battery level is low
-
-    // https://developers.homebridge.io/#/characteristic/StatusTampered
-    this.service.setCharacteristic(
-      this.platform.Characteristic.StatusTampered,
-      this.platform.Characteristic.StatusTampered.NOT_TAMPERED,
-    ); // 0 = Not tampered, 1 = Tampered
-
-    // Register handlers for the On/Off Characteristic
     this.service
-      .getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.handleSetOn.bind(this))
-      .onGet(this.handleGetOn.bind(this));
+      .getCharacteristic(this.platform.Characteristic.AirQuality)
+      .onGet(this.handleGetAirQuality.bind(this));
+
+    this.service
+      .getCharacteristic(this.platform.Characteristic.StatusActive)
+      .onGet(this.handleGetStatusActive.bind(this));
   }
 
   get log() {
-    const loggerPrefix = `[Energy Socket: ${this.accessory.displayName}] -> `;
+    const loggerPrefix = `[Air Quality Sensor: ${this.accessory.displayName}] -> `;
 
     return {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,12 +109,16 @@ export class TemperatureSensorAccessory {
    * Do not return anything from this method. Otherwise we'll get this error:
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
    */
-  async handleSetOn(value: CharacteristicValue): Promise<void> {
+  handleSetAirQuality(value: CharacteristicValue): void {
     // handle
 
-    await Promise.resolve(value);
+    // TODO: this is not handled within homekit, we should handle this with the API ourselves
 
-    return;
+    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+
+    this.log.debug('handleSetAirQuality ->', value);
+
+    this.service.setCharacteristic(this.platform.Characteristic.AirQuality, value);
   }
 
   /**
@@ -143,9 +134,31 @@ export class TemperatureSensorAccessory {
    * @example
    * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
    */
-  async handleGetOn(): Promise<CharacteristicValue> {
+  async handleGetAirQuality(): Promise<Nullable<CharacteristicValue>> {
     // handle
 
-    return Promise.resolve(true);
+    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.AirQuality,
+    ).value;
+
+    this.log.debug('handleGetAirQuality ->', currentValue);
+
+    return Promise.resolve(currentValue);
+  }
+
+  async handleGetStatusActive(): Promise<Nullable<CharacteristicValue>> {
+    // handle
+
+    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.StatusActive,
+    ).value;
+
+    this.log.debug('handleGetStatusActive ->', currentValue);
+
+    return Promise.resolve(currentValue);
   }
 }

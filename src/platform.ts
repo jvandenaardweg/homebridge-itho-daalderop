@@ -14,6 +14,7 @@ import { FanAccessory } from '@/fan-accessory';
 import { ZodError } from 'zod';
 import { ConfigSchema, configSchema } from './config.schema';
 import { IthoDaalderopAccessoryContext } from './types';
+import { AirQualitySensorAccessory } from './air-quality-sensor-accessory';
 
 /**
  * HomebridgePlatform
@@ -55,8 +56,16 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
         return;
       }
 
-      // TODO: handle
-      // this.addAccessory();
+      this.addFanAccessory(
+        'Mechanical Ventilation',
+        this.api.hap.uuid.generate('Mechanical Ventilation'),
+      );
+
+      this.addAirQualitySensor(
+        'Air Quality Sensor',
+        this.api.hap.uuid.generate('Air Quality Sensor'),
+      );
+      // this.addHumiditySensor('Humidity Sensor', this.api.hap.uuid.generate('Humidity Sensor'));
     });
 
     // On Homebridge shutdown, cleanup some things
@@ -107,7 +116,7 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
     }
   }
 
-  addAccessory(displayName: string, uuid: string) {
+  addFanAccessory(displayName: string, uuid: string) {
     try {
       const existingAccessory = this.cachedAccessories.find(
         accessory => accessory.UUID === uuid,
@@ -125,7 +134,8 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
         );
 
         // Create the accessory handler for the newly create accessory
-        this.attachAccessoryToPlatform(newAccessory);
+        this.attachFanAccessoryToPlatform(newAccessory);
+        // this.attachCarbonDioxideSensorAccessoryToPlatform('CO2 Sensor', newAccessory);
 
         // Link the accessory to your platform
         this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [newAccessory]);
@@ -146,7 +156,7 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
       this.api.updatePlatformAccessories([existingAccessory]);
 
       // Create the accessory handler for the restored accessory
-      this.attachAccessoryToPlatform(existingAccessory);
+      this.attachFanAccessoryToPlatform(existingAccessory);
     } catch (error) {
       this.log.error(
         this.loggerPrefix,
@@ -155,10 +165,68 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
     }
   }
 
-  attachAccessoryToPlatform(accessory: PlatformAccessory<IthoDaalderopAccessoryContext>): void {
+  addAirQualitySensor(displayName: string, uuid: string) {
+    try {
+      const existingAccessory = this.cachedAccessories.find(
+        accessory => accessory.UUID === uuid,
+      ) as PlatformAccessory<IthoDaalderopAccessoryContext>;
+
+      if (!existingAccessory) {
+        // The accessory does not yet exist, so we need to create it
+
+        this.log.info(this.loggerPrefix, 'Adding new accessory:', uuid);
+
+        // Create a new accessory
+        const newAccessory = new this.api.platformAccessory<IthoDaalderopAccessoryContext>(
+          displayName,
+          uuid,
+        );
+
+        // Create the accessory handler for the newly create accessory
+        // this.attachFanAccessoryToPlatform(newAccessory);
+        this.attachAirQualitySensorAccessoryToPlatform(newAccessory);
+
+        // Link the accessory to your platform
+        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [newAccessory]);
+
+        return;
+      }
+
+      // When we end up here, accessory is found in cache
+
+      // The accessory already exists, so we can restore it from our cache
+      this.log.info(
+        this.loggerPrefix,
+        `Restoring existing accessory from cache: ${existingAccessory.displayName}`,
+      );
+
+      // Update the existing accessory with the new data, for example, the IP address might have changed
+      // existingAccessory.context.somethingExtra = 'asd';
+      this.api.updatePlatformAccessories([existingAccessory]);
+
+      // Create the accessory handler for the restored accessory
+      this.attachAirQualitySensorAccessoryToPlatform(existingAccessory);
+    } catch (error) {
+      this.log.error(
+        this.loggerPrefix,
+        `Error while adding the accessory: ${JSON.stringify(error)}`,
+      );
+    }
+  }
+
+  attachFanAccessoryToPlatform(accessory: PlatformAccessory<IthoDaalderopAccessoryContext>): void {
     this.log.debug(this.loggerPrefix, 'Attaching accessory to platform:', accessory.displayName);
 
     // Create the accessory handler for the restored accessory
     new FanAccessory(this, accessory);
+  }
+
+  attachAirQualitySensorAccessoryToPlatform(
+    accessory: PlatformAccessory<IthoDaalderopAccessoryContext>,
+  ): void {
+    this.log.debug(this.loggerPrefix, 'Attaching accessory to platform:', accessory.displayName);
+
+    // Create the accessory handler for the restored accessory
+    new AirQualitySensorAccessory(this, accessory);
   }
 }
