@@ -9,7 +9,7 @@ import { PLATFORM_MANUFACTURER } from './settings';
  * An instance of this class is created for each accessory your platform registers
  * Each accessory may expose multiple services of different service types.
  */
-export class FanAccessory {
+export class TemperatureSensorAccessory {
   private service: Service;
   private informationService: Service | undefined;
 
@@ -50,39 +50,40 @@ export class FanAccessory {
     // Set accessory information
     this.informationService = informationService;
 
-    // https://developers.homebridge.io/#/service/Fanv2
+    // https://developers.homebridge.io/#/service/TemperatureSensor
     this.service =
-      this.accessory.getService(this.platform.Service.Fanv2) ||
-      this.accessory.addService(this.platform.Service.Fanv2);
+      this.accessory.getService(this.platform.Service.TemperatureSensor) ||
+      this.accessory.addService(this.platform.Service.TemperatureSensor);
+
+    // REQUIRED
+
+    // https://developers.homebridge.io/#/characteristic/CurrentTemperature
+    this.service.setCharacteristic(this.platform.Characteristic.CurrentTemperature, 0); // -270 - 100, minStep 0.1
+
+    // OPTIONAL
 
     // Set the service name, this is what is displayed as the default name on the Home app
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.displayName);
+
     this.service.setCharacteristic(
       this.platform.Characteristic.Active,
       this.platform.Characteristic.Active.ACTIVE,
     );
-    this.service.setCharacteristic(
-      this.platform.Characteristic.CurrentFanState,
-      this.platform.Characteristic.CurrentFanState.BLOWING_AIR,
-    );
-    this.service.setCharacteristic(
-      this.platform.Characteristic.TargetFanState,
-      this.platform.Characteristic.TargetFanState.AUTO,
-    );
-    this.service.setCharacteristic(
-      this.platform.Characteristic.LockPhysicalControls,
-      this.platform.Characteristic.LockPhysicalControls.CONTROL_LOCK_DISABLED,
-    );
-    this.service.setCharacteristic(
-      this.platform.Characteristic.RotationDirection,
-      this.platform.Characteristic.RotationDirection.CLOCKWISE,
-    );
 
-    this.service.setCharacteristic(this.platform.Characteristic.RotationSpeed, 0);
+    // https://developers.homebridge.io/#/characteristic/StatusFault
+    this.service.setCharacteristic(this.platform.Characteristic.StatusFault, 0); // 0 = No Fault, 1 = General Fault
+
+    // https://developers.homebridge.io/#/characteristic/StatusLowBattery
     this.service.setCharacteristic(
-      this.platform.Characteristic.SwingMode,
-      this.platform.Characteristic.SwingMode.SWING_DISABLED,
-    );
+      this.platform.Characteristic.StatusLowBattery,
+      this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
+    ); // 0 = Battery level is normal, 1 = Battery level is low
+
+    // https://developers.homebridge.io/#/characteristic/StatusTampered
+    this.service.setCharacteristic(
+      this.platform.Characteristic.StatusTampered,
+      this.platform.Characteristic.StatusTampered.NOT_TAMPERED,
+    ); // 0 = Not tampered, 1 = Tampered
 
     // Register handlers for the On/Off Characteristic
     this.service
