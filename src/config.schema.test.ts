@@ -22,6 +22,7 @@ describe('config.schema.json', () => {
     const configSchemaValues: ConfigSchema = {
       platform: PLATFORM_NAME,
       name: 'Itho Daalderop',
+      ip: '192.168.0.10',
     };
 
     const schemaValidation = () => {
