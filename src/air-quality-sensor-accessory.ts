@@ -1,8 +1,12 @@
 import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homebridge';
+import mqtt from 'mqtt';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext } from './types';
-import { PLATFORM_MANUFACTURER } from './settings';
+import { MANUFACTURER } from './settings';
+import { IthoStatusPayload } from './mocks/mqtt-payloads';
+import { parseMQTTMessage } from './utils/mqtt';
+import { isNil } from './utils';
 
 /**
  * Platform Accessory
@@ -12,6 +16,7 @@ import { PLATFORM_MANUFACTURER } from './settings';
 export class AirQualitySensorAccessory {
   private service: Service;
   private informationService: Service | undefined;
+  private mqttClient: mqtt.Client;
 
   constructor(
     private readonly platform: HomebridgeIthoDaalderop,
@@ -19,14 +24,42 @@ export class AirQualitySensorAccessory {
   ) {
     this.log.debug(`Initializing platform accessory`);
 
+    // TODO: use correct ip
+    this.mqttClient = mqtt.connect('mqtt://test.mosquitto.org');
+
+    const statusSubscription = this.mqttClient.subscribe('itho/ithostatus');
+
+    statusSubscription.on('message', (_, message) => {
+      const data = parseMQTTMessage<IthoStatusPayload>(message);
+
+      const airQuality = this.getAirQualityFromStatusPayload(data);
+      const currentRelativeHumidity = data.hum || 0;
+      const currentTemperature = data.temp || 0;
+      const carbonDioxideLevel = data['CO2level (ppm)'] || 0;
+
+      this.service.setCharacteristic(this.platform.Characteristic.AirQuality, airQuality);
+
+      this.service.setCharacteristic(
+        this.platform.Characteristic.CurrentRelativeHumidity,
+        currentRelativeHumidity,
+      );
+
+      this.service.setCharacteristic(
+        this.platform.Characteristic.CurrentTemperature,
+        currentTemperature,
+      );
+
+      this.service.setCharacteristic(
+        this.platform.Characteristic.CarbonDioxideLevel,
+        carbonDioxideLevel,
+      );
+    });
+
     const informationService = this.accessory.getService(
       this.platform.Service.AccessoryInformation,
     );
 
-    informationService?.setCharacteristic(
-      this.platform.Characteristic.Manufacturer,
-      PLATFORM_MANUFACTURER,
-    );
+    informationService?.setCharacteristic(this.platform.Characteristic.Manufacturer, MANUFACTURER);
     // informationService?.setCharacteristic(
     //   this.platform.Characteristic.Model,
     //   this.modelName, // "Energy Socket (HWE-SKT"
@@ -60,7 +93,7 @@ export class AirQualitySensorAccessory {
 
     // https://developers.homebridge.io/#/characteristic/CarbonDioxideLevel
     this.service.setCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, 0); // 0 - 100000 ppm
-    this.service.setCharacteristic(this.platform.Characteristic.CarbonDioxidePeakLevel, 0); // 0 - 100000 ppm
+    // this.service.setCharacteristic(this.platform.Characteristic.CarbonDioxidePeakLevel, 0); // 0 - 100000 ppm
 
     this.service.setCharacteristic(this.platform.Characteristic.CurrentTemperature, 0); // -270 - 100, minStep 0.1
 
@@ -77,6 +110,19 @@ export class AirQualitySensorAccessory {
     this.service
       .getCharacteristic(this.platform.Characteristic.StatusActive)
       .onGet(this.handleGetStatusActive.bind(this));
+  }
+
+  getAirQualityFromStatusPayload(data: IthoStatusPayload): number {
+    const ppm = data['CO2level (ppm)'];
+
+    if (isNil(ppm)) return this.platform.Characteristic.AirQuality.UNKNOWN;
+
+    if (ppm < 350) return this.platform.Characteristic.AirQuality.EXCELLENT;
+    if (ppm < 1000) return this.platform.Characteristic.AirQuality.GOOD;
+    if (ppm < 2500) return this.platform.Characteristic.AirQuality.FAIR;
+    if (ppm < 5000) return this.platform.Characteristic.AirQuality.INFERIOR;
+
+    return this.platform.Characteristic.AirQuality.POOR;
   }
 
   get log() {

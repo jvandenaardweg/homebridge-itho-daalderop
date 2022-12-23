@@ -87,6 +87,7 @@
     "vitest": "^0.26.2"
   },
   "dependencies": {
+    "mqtt": "^4.3.7",
     "validator": "^13.7.0",
     "zod": "^3.20.2"
   },

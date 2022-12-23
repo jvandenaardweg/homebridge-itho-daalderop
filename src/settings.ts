@@ -10,4 +10,4 @@ export const PLATFORM_NAME = 'HomebridgeIthoDaalderop';
  */
 export const PLUGIN_NAME = 'homebridge-itho-daalderop';
 
-export const PLATFORM_MANUFACTURER = 'Itho Daalderop';
+export const MANUFACTURER = 'Itho Daalderop';
