@@ -3,10 +3,14 @@ import mqtt from 'mqtt';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext } from './types';
-import { MANUFACTURER } from './settings';
+import { DEFAULT_AIR_QUALITY_SENSOR_NAME, MANUFACTURER, MQTT_STATUS_TOPIC } from './settings';
 import { IthoStatusPayload } from './mocks/mqtt-payloads';
 import { parseMQTTMessage } from './utils/mqtt';
 import { isNil } from './utils';
+
+// function getRndInteger(min: number, max: number): number {
+//   return Math.floor(Math.random() * (max - min + 1)) + min;
+// }
 
 /**
  * Platform Accessory
@@ -27,11 +31,28 @@ export class AirQualitySensorAccessory {
     // TODO: use correct ip
     this.mqttClient = mqtt.connect('mqtt://test.mosquitto.org');
 
-    const statusSubscription = this.mqttClient.subscribe('itho/ithostatus');
+    // Mock until we connect to the real mqtt server
+    // this.mqttClient.on('connect', () => {
+    //   this.mqttClient.subscribe(MQTT_STATUS_TOPIC, err => {
+    //     if (!err) {
+    //       setInterval(() => {
+    //         const payload = JSON.stringify({
+    //           temp: getRndInteger(15, 25),
+    //           hum: getRndInteger(40, 80),
+    //           'CO2level (ppm)': getRndInteger(100, 5000),
+    //         });
+
+    //         this.mqttClient.publish(MQTT_STATUS_TOPIC, payload);
+    //       }, 5000);
+    //     }
+    //   });
+    // });
+
+    const statusSubscription = this.mqttClient.subscribe(MQTT_STATUS_TOPIC);
 
     // Update the characteristic values when we receive a new message from mqtt
     statusSubscription.on('message', (_, message) => {
-      this.log.debug(`Received new status payload: ${message.toString}`);
+      this.log.debug(`Received new status payload: ${message.toString()}`);
 
       const data = parseMQTTMessage<IthoStatusPayload>(message);
 
@@ -53,18 +74,18 @@ export class AirQualitySensorAccessory {
     );
 
     informationService?.setCharacteristic(this.platform.Characteristic.Manufacturer, MANUFACTURER);
-    // informationService?.setCharacteristic(
-    //   this.platform.Characteristic.Model,
-    //   this.modelName, // "Energy Socket (HWE-SKT"
-    // );
-    // informationService?.setCharacteristic(
-    //   this.platform.Characteristic.SerialNumber,
-    //   this.properties.serialNumber, // Like: "1c23e7280952"
-    // );
-    // informationService?.setCharacteristic(
-    //   this.platform.Characteristic.FirmwareRevision,
-    //   this.properties.firmwareVersion, // Like: "3.02"
-    // );
+    informationService?.setCharacteristic(
+      this.platform.Characteristic.Model,
+      DEFAULT_AIR_QUALITY_SENSOR_NAME, // Value is unknown, we'll set something
+    );
+    informationService?.setCharacteristic(
+      this.platform.Characteristic.SerialNumber,
+      'Unknown', // Value is unknown, we'll set something
+    );
+    informationService?.setCharacteristic(
+      this.platform.Characteristic.FirmwareRevision,
+      '1.0', // Value is unknown, we'll set something
+    );
 
     // Set accessory information
     this.informationService = informationService;
@@ -100,19 +121,28 @@ export class AirQualitySensorAccessory {
       .onGet(this.handleGetStatusActive.bind(this));
   }
 
+  getAirQualityName(value: number): string | undefined {
+    return Object.keys(this.platform.Characteristic.AirQuality).find(
+      key => this.platform.Characteristic.AirQuality[key] === value,
+    );
+  }
+
   setAirQuality(value: number): void {
     const currentValue = this.service.getCharacteristic(
       this.platform.Characteristic.AirQuality,
     ).value;
 
+    const newAirQualityName = this.getAirQualityName(value);
+    const currentAirQualityName = this.getAirQualityName(currentValue as number);
+
     if (currentValue === value) {
-      this.log.debug(`AirQuality: Already set to: ${value}`);
+      this.log.debug(`AirQuality: Already set to: ${newAirQualityName}. Ignoring.`);
       return;
     }
 
-    this.log.debug(`AirQuality: Setting to: ${value} (was: ${currentValue})`);
+    this.log.debug(`AirQuality: Setting to: ${newAirQualityName} (was: ${currentAirQualityName})`);
 
-    this.service.setCharacteristic(this.platform.Characteristic.AirQuality, value);
+    this.service.updateCharacteristic(this.platform.Characteristic.AirQuality, value);
   }
 
   setCurrentRelativeHumidity(value: number): void {
@@ -121,13 +151,13 @@ export class AirQualitySensorAccessory {
     ).value;
 
     if (currentValue === value) {
-      this.log.debug(`CurrentRelativeHumidity: Already set to: ${value}`);
+      this.log.debug(`CurrentRelativeHumidity: Already set to: ${value}. Ignoring.`);
       return;
     }
 
     this.log.debug(`CurrentRelativeHumidity: Setting to: ${value} (was: ${currentValue})`);
 
-    this.service.setCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, value);
+    this.service.updateCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, value);
   }
 
   setCurrentTemperature(value: number): void {
@@ -136,13 +166,13 @@ export class AirQualitySensorAccessory {
     ).value;
 
     if (currentValue === value) {
-      this.log.debug(`CurrentTemperature: Already set to: ${value}`);
+      this.log.debug(`CurrentTemperature: Already set to: ${value}. Ignoring.`);
       return;
     }
 
     this.log.debug(`CurrentTemperature: Setting to: ${value} (was: ${currentValue})`);
 
-    this.service.setCharacteristic(this.platform.Characteristic.CurrentTemperature, value);
+    this.service.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, value);
   }
 
   setCarbonDioxideLevel(value: number): void {
@@ -151,13 +181,13 @@ export class AirQualitySensorAccessory {
     ).value;
 
     if (currentValue === value) {
-      this.log.debug(`CarbonDioxideLevel: Already set to: ${value}`);
+      this.log.debug(`CarbonDioxideLevel: Already set to: ${value}. Ignoring.`);
       return;
     }
 
     this.log.debug(`CarbonDioxideLevel: Setting to: ${value} (was: ${currentValue})`);
 
-    this.service.setCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, value);
+    this.service.updateCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, value);
   }
 
   getAirQualityFromStatusPayload(data: IthoStatusPayload): number {
@@ -197,25 +227,6 @@ export class AirQualitySensorAccessory {
   }
 
   /**
-   * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
-   *
-   * Do not return anything from this method. Otherwise we'll get this error:
-   * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
-   */
-  // handleSetAirQuality(value: CharacteristicValue): void {
-  //   // handle
-
-  //   // TODO: this is not handled within homekit, we should handle this with the API ourselves
-
-  //   // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
-
-  //   this.log.debug('handleSetAirQuality ->', value);
-
-  //   this.service.setCharacteristic(this.platform.Characteristic.AirQuality, value);
-  // }
-
-  /**
    * Handle the "GET" requests from HomeKit
    * These are sent when HomeKit wants to know the current state of the accessory, for example, checking if a Light bulb is on.
    *
@@ -229,30 +240,24 @@ export class AirQualitySensorAccessory {
    * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
    */
   async handleGetAirQuality(): Promise<Nullable<CharacteristicValue>> {
-    // handle
-
-    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
-
     const currentValue = this.service.getCharacteristic(
       this.platform.Characteristic.AirQuality,
     ).value;
 
-    this.log.debug('handleGetAirQuality ->', currentValue);
+    const airQualityName = this.getAirQualityName(currentValue as number);
+
+    this.log.debug(`AirQuality is ${airQualityName} (${currentValue})`);
 
     return Promise.resolve(currentValue);
   }
 
   async handleGetStatusActive(): Promise<Nullable<CharacteristicValue>> {
-    // handle
-
-    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
-
     const currentValue = this.service.getCharacteristic(
       this.platform.Characteristic.StatusActive,
     ).value;
 
-    this.log.debug('handleGetStatusActive ->', currentValue);
+    this.log.debug(`StatusActive is ${currentValue ? 'ACTIVE' : 'INACTIVE'} (${currentValue})`);
 
-    return Promise.resolve(currentValue);
+    return currentValue;
   }
 }

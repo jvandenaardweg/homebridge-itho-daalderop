@@ -3,7 +3,10 @@ import mqtt from 'mqtt';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext } from './types';
-import { MANUFACTURER } from './settings';
+import { DEFAULT_FAN_NAME, MANUFACTURER, MQTT_STATE_TOPIC } from './settings';
+
+// https://developers.homebridge.io/#/characteristic/RotationSpeed
+const MAX_ROTATION_SPEED = 100;
 
 /**
  * Platform Accessory
@@ -24,10 +27,18 @@ export class FanAccessory {
     // TODO: use correct ip
     this.mqttClient = mqtt.connect('mqtt://test.mosquitto.org');
 
-    const stateSubscription = this.mqttClient.subscribe('itho/state');
+    // Mock until we connect to the real mqtt server
+    this.mqttClient.on('connect', () => {
+      this.mqttClient.subscribe(MQTT_STATE_TOPIC, err => {
+        if (!err) {
+          setInterval(() => {
+            this.mqttClient.publish(MQTT_STATE_TOPIC, Math.floor(Math.random() * 101).toString());
+          }, 5000);
+        }
+      });
+    });
 
-    // const setState = this.mqttClient.subscribe('itho/set');
-    // const getStatus = this.mqttClient.subscribe('itho/ithostatus');
+    const stateSubscription = this.mqttClient.subscribe(MQTT_STATE_TOPIC);
 
     stateSubscription.on('message', (_, message) => {
       const messageString = message.toString();
@@ -43,24 +54,26 @@ export class FanAccessory {
       this.platform.Service.AccessoryInformation,
     );
 
-    informationService?.setCharacteristic(this.platform.Characteristic.Manufacturer, MANUFACTURER);
-    // informationService?.setCharacteristic(
-    //   this.platform.Characteristic.Model,
-    //   this.modelName, // "Energy Socket (HWE-SKT"
-    // );
-    // informationService?.setCharacteristic(
-    //   this.platform.Characteristic.SerialNumber,
-    //   this.properties.serialNumber, // Like: "1c23e7280952"
-    // );
-    // informationService?.setCharacteristic(
-    //   this.platform.Characteristic.FirmwareRevision,
-    //   this.properties.firmwareVersion, // Like: "3.02"
-    // );
-
     // Set accessory information
     this.informationService = informationService;
 
-    // https://developers.homebridge.io/#/service/Fanv2
+    this.informationService?.setCharacteristic(
+      this.platform.Characteristic.Manufacturer,
+      MANUFACTURER,
+    );
+    this.informationService?.setCharacteristic(
+      this.platform.Characteristic.Model,
+      DEFAULT_FAN_NAME, // Value is unknown, we'll set something
+    );
+    this.informationService?.setCharacteristic(
+      this.platform.Characteristic.SerialNumber,
+      'Unknown', // Value is unknown, we'll set something
+    );
+    this.informationService?.setCharacteristic(
+      this.platform.Characteristic.FirmwareRevision,
+      '1.0', // Value is unknown, we'll set something
+    );
+
     this.service =
       this.accessory.getService(this.platform.Service.Fanv2) ||
       this.accessory.addService(this.platform.Service.Fanv2);
@@ -68,12 +81,12 @@ export class FanAccessory {
     // Set the service name, this is what is displayed as the default name on the Home app
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.displayName);
 
+    // Set the fan active as default
+    // TODO: get status from mqtt
     this.service.setCharacteristic(
       this.platform.Characteristic.Active,
       this.platform.Characteristic.Active.ACTIVE,
-    ); // TODO: set a default?
-
-    // this.service.setCharacteristic(this.platform.Characteristic.RotationSpeed, 0); // TODO: set a default?
+    );
 
     this.service
       .getCharacteristic(this.platform.Characteristic.Active)
@@ -85,14 +98,14 @@ export class FanAccessory {
       .onSet(this.handleSetRotationSpeed.bind(this))
       .onGet(this.handleGetRotationSpeed.bind(this));
 
-    // this.service
-    //   .getCharacteristic(this.platform.Characteristic.CurrentFanState)
-    //   .onGet(this.handleGetCurrentFanState.bind(this));
+    this.service
+      .getCharacteristic(this.platform.Characteristic.CurrentFanState)
+      .onGet(this.handleGetCurrentFanState.bind(this));
 
-    // this.service
-    //   .getCharacteristic(this.platform.Characteristic.TargetFanState)
-    //   .onSet(this.handleSetTargetFanState.bind(this))
-    //   .onGet(this.handleGetTargetFanState.bind(this));
+    this.service
+      .getCharacteristic(this.platform.Characteristic.TargetFanState)
+      .onSet(this.handleSetTargetFanState.bind(this))
+      .onGet(this.handleGetTargetFanState.bind(this));
   }
 
   get log() {
@@ -118,6 +131,37 @@ export class FanAccessory {
     };
   }
 
+  get isActive(): boolean {
+    return (
+      this.service.getCharacteristic(this.platform.Characteristic.Active).value ===
+      this.platform.Characteristic.Active.ACTIVE
+    );
+  }
+
+  getTargetFanStateName(value: number): string | undefined {
+    // If "manual" => The fan should be controlled manually.
+    // If "auto" => The fan should be controlled automatically.
+    // https://developer.apple.com/documentation/homekit/hmcharacteristicvaluetargetfanstate
+    return Object.keys(this.platform.Characteristic.TargetFanState).find(
+      key => this.platform.Characteristic.TargetFanState[key] === value,
+    );
+  }
+
+  getCurrentFanStateName(value: number): string | undefined {
+    // If "idle" => The fan is idle.
+    // If "blowing air" => The fan is blowing air.
+    // If "inactive" => The fan is inactive.
+    // https://developer.apple.com/documentation/homekit/hmcharacteristicvaluecurrentfanstate
+    return Object.keys(this.platform.Characteristic.CurrentFanState).find(
+      key => this.platform.Characteristic.CurrentFanState[key] === value,
+    );
+  }
+  getActiveName(value: number): string | undefined {
+    return Object.keys(this.platform.Characteristic.Active).find(
+      key => this.platform.Characteristic.Active[key] === value,
+    );
+  }
+
   setRotationSpeed(value: number): void {
     const currentValue = this.service.getCharacteristic(
       this.platform.Characteristic.RotationSpeed,
@@ -130,7 +174,11 @@ export class FanAccessory {
 
     this.log.debug(`RotationSpeed: Setting to: ${value} (was: ${currentValue})`);
 
-    this.service.setCharacteristic(this.platform.Characteristic.RotationSpeed, value);
+    this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, value);
+  }
+
+  get targetFanState(): Nullable<CharacteristicValue> {
+    return this.service.getCharacteristic(this.platform.Characteristic.TargetFanState).value;
   }
 
   /**
@@ -139,21 +187,34 @@ export class FanAccessory {
    *
    * Do not return anything from this method. Otherwise we'll get this error:
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
+   *
+   * This method is only triggered when the user manually adjusts the rotation speed in the Home App.
+   * So we need to set the TargetFanState to "manual" as well.
    */
   handleSetRotationSpeed(value: CharacteristicValue): void {
-    // handle
-
     const valueToSet = Math.round(Number(value) * 2.54); // TODO: is this correct?
 
-    this.log.debug('handleSetRotationSpeed', value, valueToSet);
+    this.log.info(`Setting RotationSpeed to ${value}/${MAX_ROTATION_SPEED}`);
 
     // Publish to MQTT server to update the rotation speed
     this.mqttClient.publish('itho/cmd', valueToSet.toString());
     this.log.debug('mqttClient.publish', 'itho/cmd', valueToSet.toString());
 
-    // We will receive a message from the MQTT server with the new state
+    // The user adjusted the rotation speed manually, so we need to set the TargetFanState to "manual"
+    if (this.targetFanState !== this.platform.Characteristic.TargetFanState.MANUAL) {
+      this.log.info(
+        'Setting TargetFanState to "manual" because the rotation speed is manually adjusted.',
+      );
 
-    // this.service.setCharacteristic(this.platform.Characteristic.RotationSpeed, value); // TODO: is this needed? we already listen for changes on the constructor
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.TargetFanState,
+        this.platform.Characteristic.TargetFanState.MANUAL,
+      );
+    } else {
+      this.log.debug('TargetFanState already set to "manual", skipping.');
+    }
+
+    // We will receive a message from the MQTT server with the new state
   }
 
   /**
@@ -168,25 +229,37 @@ export class FanAccessory {
 
     // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
 
-    this.log.debug('handleSetActive', value);
+    this.log.info(`Setting Active to ${value}`);
 
-    const onStateValue = value === true ? 20 : 0;
+    const isActive = value === this.platform.Characteristic.Active.ACTIVE;
 
-    this.mqttClient.publish('itho/state', onStateValue.toString());
-    this.log.debug('mqttClient.publish', 'itho/state', onStateValue.toString());
+    const onStateValue = isActive ? 20 : 0;
+
+    this.mqttClient.publish(MQTT_STATE_TOPIC, onStateValue.toString());
+    this.log.debug('mqttClient.publish', MQTT_STATE_TOPIC, onStateValue.toString());
+
+    this.service.updateCharacteristic(
+      this.platform.Characteristic.CurrentFanState,
+      isActive
+        ? this.platform.Characteristic.CurrentFanState.BLOWING_AIR
+        : this.platform.Characteristic.CurrentFanState.INACTIVE,
+    );
 
     // this.service.setCharacteristic(this.platform.Characteristic.Active, value); // TODO: is this needed? we already listen for changes on the constructor
   }
 
-  // async handleSetTargetFanState(value: CharacteristicValue): Promise<void> {
-  //   // handle
+  async handleSetTargetFanState(value: CharacteristicValue): Promise<void> {
+    // 0 = Manual
+    // 1 = Auto
 
-  //   // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+    const targetFanStateName = this.getTargetFanStateName(value as number);
 
-  //   this.log.debug('handleSetTargetFanState', value);
+    this.log.debug(`Setting TargetFanState to ${targetFanStateName} (${value})`);
 
-  //   // this.service.setCharacteristic(this.platform.Characteristic.TargetFanState, value);
-  // }
+    // TODO: save to mqtt
+
+    this.service.updateCharacteristic(this.platform.Characteristic.TargetFanState, value);
+  }
 
   /**
    * Handle the "GET" requests from HomeKit
@@ -208,7 +281,9 @@ export class FanAccessory {
 
     const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
 
-    this.log.debug('handleGetActive', currentValue);
+    const activeName = this.getActiveName(currentValue as number);
+
+    this.log.info(`Active is ${activeName} (${currentValue})`);
 
     return currentValue;
   }
@@ -218,36 +293,33 @@ export class FanAccessory {
       this.platform.Characteristic.RotationSpeed,
     ).value;
 
-    this.log.debug('handleGetRotationSpeed', currentValue);
+    this.log.info(`RotationSpeed is ${currentValue}/${MAX_ROTATION_SPEED}`);
 
     return currentValue;
   }
 
-  // async handleGetCurrentFanState(): Promise<Nullable<CharacteristicValue>> {
-  //   // handle
+  handleGetCurrentFanState(): Nullable<CharacteristicValue> {
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.CurrentFanState,
+    ).value;
 
-  //   // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+    const currentFanStateName = this.getCurrentFanStateName(currentValue as number);
 
-  //   const currentValue = this.service.getCharacteristic(
-  //     this.platform.Characteristic.CurrentFanState,
-  //   ).value;
+    this.log.debug(`CurrentFanState is ${currentFanStateName} (${currentValue})`);
 
-  //   this.log.debug('handleGetCurrentFanState', currentValue);
+    return currentValue;
+  }
 
-  //   return Promise.resolve(currentValue);
-  // }
+  handleGetTargetFanState(): Nullable<CharacteristicValue> {
+    // 0 = Manual
+    // 1 = Auto
 
-  // async handleGetTargetFanState(): Promise<Nullable<CharacteristicValue>> {
-  //   // handle
+    const currentValue = this.targetFanState;
 
-  //   // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+    const currentTargetFanStateName = this.getTargetFanStateName(currentValue as number);
 
-  //   const currentValue = this.service.getCharacteristic(
-  //     this.platform.Characteristic.TargetFanState,
-  //   ).value;
+    this.log.info(`TargetFanState is ${currentTargetFanStateName} (${currentValue})`);
 
-  //   this.log.debug('handleGetTargetFanState', currentValue);
-
-  //   return Promise.resolve(currentValue);
-  // }
+    return currentValue;
+  }
 }

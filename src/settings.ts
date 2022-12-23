@@ -14,3 +14,21 @@ export const MANUFACTURER = 'Itho Daalderop';
 
 export const DEFAULT_FAN_NAME = 'Mechanical Ventilation';
 export const DEFAULT_AIR_QUALITY_SENSOR_NAME = 'Air Quality Sensor';
+
+/**
+ * This topic returns a dictionary object with key and value pair for each entries shown on the Itho status page.
+ *
+ * @link: https://github.com/arjenhiemstra/ithowifi/wiki/MQTT-integration#ithoithostatus-read-itho-status
+ */
+export const MQTT_STATUS_TOPIC = 'itho/ithostatus';
+
+export const MQTT_STATE_TOPIC = 'itho/state';
+
+/**
+ * This topic is used to send commands to the add-on.
+ * A common use case is to have this integrated with home automation software like Home Assistant or Domoticz.
+ * The relevant commands vary between the non-CVE and CVE unit, see the above table for relevant options.
+ *
+ * @link: https://github.com/arjenhiemstra/ithowifi/wiki/MQTT-integration#ithocmd-change-device-settings
+ */
+export const MQTT_CMD_TOPIC = 'itho/cmd';

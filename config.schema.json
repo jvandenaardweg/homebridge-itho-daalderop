@@ -17,8 +17,9 @@
       },
       "ip": {
         "type": "string",
-        "title": "IP Address",
+        "title": "IP Address of Mechanical Fan",
         "placeholder": "192.168.0.10",
+        "description": "The IP address of the Itho Daalderop mechanical fan that is connected to your WiFi.",
         "format": "ipv4",
         "required": true
       }
