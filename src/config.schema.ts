@@ -8,7 +8,7 @@ export const configSchema = z.object({
   name: z.string({
     required_error: 'A bridge name is required',
   }),
-  ip: z
+  mqttBrokerIp: z
     .string({
       required_error: 'IP address is required for setup',
       invalid_type_error: "'ip' must be a string",
