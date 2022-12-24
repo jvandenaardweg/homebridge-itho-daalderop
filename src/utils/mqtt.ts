@@ -1,4 +1,4 @@
-export function parseMQTTMessage<T>(message: Buffer): T {
+export function sanitizeMQTTMessage<T>(message: Buffer): T {
   const messageString = message.toString();
 
   const data = JSON.parse(messageString);

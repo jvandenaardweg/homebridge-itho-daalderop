@@ -2,10 +2,9 @@ import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homeb
 import mqtt from 'mqtt';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
-import { IthoDaalderopAccessoryContext } from './types';
+import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
 import { DEFAULT_AIR_QUALITY_SENSOR_NAME, MANUFACTURER, MQTT_STATUS_TOPIC } from './settings';
-import { IthoStatusPayload } from './mocks/mqtt-payloads';
-import { parseMQTTMessage } from './utils/mqtt';
+import { sanitizeMQTTMessage } from './utils/mqtt';
 import { isNil } from './utils';
 
 // function getRndInteger(min: number, max: number): number {
@@ -19,8 +18,8 @@ import { isNil } from './utils';
  */
 export class AirQualitySensorAccessory {
   private service: Service;
-  private informationService: Service | undefined;
   private mqttClient: mqtt.Client;
+  private lastStatusPayload: Nullable<IthoStatusSanitizedPayload> = null;
 
   constructor(
     private readonly platform: HomebridgeIthoDaalderop,
@@ -28,10 +27,12 @@ export class AirQualitySensorAccessory {
   ) {
     this.log.debug(`Initializing platform accessory`);
 
-    // TODO: use correct ip
-    this.mqttClient = mqtt.connect('mqtt://test.mosquitto.org');
+    this.mqttClient = mqtt.connect('http://192.168.1.21:1883', {
+      // clientId: `${PLUGIN_NAME}-air-quality-accessory`,
+      reconnectPeriod: 10000, // 10 seconds
+    });
 
-    // Mock until we connect to the real mqtt server
+    // For debugging purposes
     // this.mqttClient.on('connect', () => {
     //   this.mqttClient.subscribe(MQTT_STATUS_TOPIC, err => {
     //     if (!err) {
@@ -48,15 +49,25 @@ export class AirQualitySensorAccessory {
     //   });
     // });
 
+    this.mqttClient.on('connect', packet => {
+      this.log.info(`MQTT connect: ${JSON.stringify(packet)}`);
+    });
+
+    this.mqttClient.on('error', err => {
+      this.log.error(`MQTT error: ${JSON.stringify(err)}`);
+    });
+
     const statusSubscription = this.mqttClient.subscribe(MQTT_STATUS_TOPIC);
 
     // Update the characteristic values when we receive a new message from mqtt
     statusSubscription.on('message', (_, message) => {
-      this.log.debug(`Received new status payload: ${message.toString()}`);
+      // this.log.debug(`Received new status payload: ${message.toString()}`);
 
-      const data = parseMQTTMessage<IthoStatusPayload>(message);
+      const data = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
 
-      this.log.debug(`Parsed new status payload to: ${JSON.stringify(data)}`);
+      this.lastStatusPayload = data;
+
+      // this.log.debug(`Parsed new status payload to: ${JSON.stringify(data)}`);
 
       const airQuality = this.getAirQualityFromStatusPayload(data);
       const currentRelativeHumidity = data.hum || 0;
@@ -87,9 +98,6 @@ export class AirQualitySensorAccessory {
       '1.0', // Value is unknown, we'll set something
     );
 
-    // Set accessory information
-    this.informationService = informationService;
-
     this.service =
       this.accessory.getService(this.platform.Service.AirQualitySensor) ||
       this.accessory.addService(this.platform.Service.AirQualitySensor);
@@ -101,11 +109,6 @@ export class AirQualitySensorAccessory {
       this.platform.Characteristic.AirQuality,
       this.platform.Characteristic.AirQuality.GOOD,
     );
-
-    // OPTIONAL
-    // this.service.setCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, 0); // 0 - 100000 ppm
-    // this.service.setCharacteristic(this.platform.Characteristic.CurrentTemperature, 0); // -270 - 100, minStep 0.1
-    // this.service.setCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, 0); // 0-100
 
     this.service.setCharacteristic(this.platform.Characteristic.StatusActive, true); // 0-100
 
@@ -136,7 +139,7 @@ export class AirQualitySensorAccessory {
     const currentAirQualityName = this.getAirQualityName(currentValue as number);
 
     if (currentValue === value) {
-      this.log.debug(`AirQuality: Already set to: ${newAirQualityName}. Ignoring.`);
+      // this.log.debug(`AirQuality: Already set to: ${newAirQualityName}. Ignoring.`);
       return;
     }
 
@@ -150,14 +153,20 @@ export class AirQualitySensorAccessory {
       this.platform.Characteristic.CurrentRelativeHumidity,
     ).value;
 
-    if (currentValue === value) {
-      this.log.debug(`CurrentRelativeHumidity: Already set to: ${value}. Ignoring.`);
+    // Transform to a rounded value, as that is what HomeKit uses
+    const roundedValue = Math.round(value);
+
+    if (currentValue === roundedValue) {
+      // this.log.debug(`CurrentRelativeHumidity: Already set to: ${value}. Ignoring.`);
       return;
     }
 
-    this.log.debug(`CurrentRelativeHumidity: Setting to: ${value} (was: ${currentValue})`);
+    this.log.debug(`CurrentRelativeHumidity: Setting to: ${roundedValue} (was: ${currentValue})`);
 
-    this.service.updateCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, value);
+    this.service.updateCharacteristic(
+      this.platform.Characteristic.CurrentRelativeHumidity,
+      roundedValue,
+    );
   }
 
   setCurrentTemperature(value: number): void {
@@ -165,14 +174,19 @@ export class AirQualitySensorAccessory {
       this.platform.Characteristic.CurrentTemperature,
     ).value;
 
-    if (currentValue === value) {
-      this.log.debug(`CurrentTemperature: Already set to: ${value}. Ignoring.`);
+    // Set toFixed to 1 to prevent values like 21.999999999999996
+    // HomeKit uses a minStep of 0.1, so we'll round to 1 decimal
+    const parsedValue = parseFloat(value.toFixed(1));
+    const parsedCurrentValue = parseFloat((currentValue as number).toFixed(1));
+
+    if (parsedCurrentValue === parsedValue) {
+      // this.log.debug(`CurrentTemperature: Already set to: ${parsedValue}. Ignoring.`);
       return;
     }
 
-    this.log.debug(`CurrentTemperature: Setting to: ${value} (was: ${currentValue})`);
+    this.log.debug(`CurrentTemperature: Setting to: ${parsedValue} (was: ${parsedCurrentValue})`);
 
-    this.service.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, value);
+    this.service.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, parsedValue);
   }
 
   setCarbonDioxideLevel(value: number): void {
@@ -181,7 +195,7 @@ export class AirQualitySensorAccessory {
     ).value;
 
     if (currentValue === value) {
-      this.log.debug(`CarbonDioxideLevel: Already set to: ${value}. Ignoring.`);
+      // this.log.debug(`CarbonDioxideLevel: Already set to: ${value}. Ignoring.`);
       return;
     }
 
@@ -190,7 +204,7 @@ export class AirQualitySensorAccessory {
     this.service.updateCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, value);
   }
 
-  getAirQualityFromStatusPayload(data: IthoStatusPayload): number {
+  getAirQualityFromStatusPayload(data: IthoStatusSanitizedPayload): number {
     const ppm = data['CO2level (ppm)'];
 
     if (isNil(ppm)) return this.platform.Characteristic.AirQuality.UNKNOWN;

@@ -2,8 +2,9 @@ import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homeb
 import mqtt from 'mqtt';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
-import { IthoDaalderopAccessoryContext } from './types';
-import { DEFAULT_FAN_NAME, MANUFACTURER, MQTT_STATE_TOPIC } from './settings';
+import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
+import { DEFAULT_FAN_NAME, MANUFACTURER, MQTT_STATE_TOPIC, MQTT_STATUS_TOPIC } from './settings';
+import { sanitizeMQTTMessage } from './utils/mqtt';
 
 // https://developers.homebridge.io/#/characteristic/RotationSpeed
 const MAX_ROTATION_SPEED = 100;
@@ -17,6 +18,7 @@ export class FanAccessory {
   private service: Service;
   private informationService: Service | undefined;
   private mqttClient: mqtt.Client;
+  private lastStatusPayload: Nullable<IthoStatusSanitizedPayload> = null;
 
   constructor(
     private readonly platform: HomebridgeIthoDaalderop,
@@ -24,30 +26,52 @@ export class FanAccessory {
   ) {
     this.log.debug(`Initializing platform accessory`);
 
-    // TODO: use correct ip
-    this.mqttClient = mqtt.connect('mqtt://test.mosquitto.org');
-
-    // Mock until we connect to the real mqtt server
-    this.mqttClient.on('connect', () => {
-      this.mqttClient.subscribe(MQTT_STATE_TOPIC, err => {
-        if (!err) {
-          setInterval(() => {
-            this.mqttClient.publish(MQTT_STATE_TOPIC, Math.floor(Math.random() * 101).toString());
-          }, 5000);
-        }
-      });
+    this.mqttClient = mqtt.connect('http://192.168.1.21:1883', {
+      // clientId: `${PLUGIN_NAME}-fan-accessory`,
+      reconnectPeriod: 10000, // 10 seconds
     });
 
-    const stateSubscription = this.mqttClient.subscribe(MQTT_STATE_TOPIC);
+    // Mock until we connect to the real mqtt server
+    // this.mqttClient.on('connect', () => {
+    //   this.mqttClient.subscribe(MQTT_STATE_TOPIC, err => {
+    //     if (!err) {
+    //       setInterval(() => {
+    //         this.mqttClient.publish(MQTT_STATE_TOPIC, Math.floor(Math.random() * 101).toString());
+    //       }, 5000);
+    //     }
+    //   });
+    // });
 
-    stateSubscription.on('message', (_, message) => {
+    this.mqttClient.subscribe([MQTT_STATE_TOPIC, MQTT_STATUS_TOPIC]);
+
+    this.mqttClient.on('connect', packet => {
+      this.log.info(`MQTT connect: ${JSON.stringify(packet)}`);
+    });
+
+    this.mqttClient.on('error', err => {
+      this.log.error(`MQTT error: ${JSON.stringify(err)}`);
+    });
+
+    this.mqttClient.on('message', (topic, message) => {
       const messageString = message.toString();
 
-      this.log.debug(`Received new state payload: ${messageString}`);
+      if (topic === MQTT_STATUS_TOPIC) {
+        const data = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
 
-      const rotationSpeed = Math.round(Number(messageString) / 2.54); // TODO: is this correct?
+        this.lastStatusPayload = data;
 
-      this.setRotationSpeed(rotationSpeed);
+        return;
+      }
+
+      if (topic === MQTT_STATE_TOPIC) {
+        this.log.debug(`Received new state payload: ${messageString}`);
+
+        const rotationSpeed = Math.round(Number(messageString) / 2.54); // TODO: is this correct?
+
+        this.setRotationSpeed(rotationSpeed);
+
+        return;
+      }
     });
 
     const informationService = this.accessory.getService(
@@ -98,14 +122,17 @@ export class FanAccessory {
       .onSet(this.handleSetRotationSpeed.bind(this))
       .onGet(this.handleGetRotationSpeed.bind(this));
 
-    this.service
-      .getCharacteristic(this.platform.Characteristic.CurrentFanState)
-      .onGet(this.handleGetCurrentFanState.bind(this));
+    // TODO: enable when we've found a way, seems to be a huge hassle:
+    // https://github.com/arjenhiemstra/ithowifi/wiki/Controlling-the-speed-of-a-fan
 
-    this.service
-      .getCharacteristic(this.platform.Characteristic.TargetFanState)
-      .onSet(this.handleSetTargetFanState.bind(this))
-      .onGet(this.handleGetTargetFanState.bind(this));
+    // this.service
+    //   .getCharacteristic(this.platform.Characteristic.CurrentFanState)
+    //   .onGet(this.handleGetCurrentFanState.bind(this));
+
+    // this.service
+    //   .getCharacteristic(this.platform.Characteristic.TargetFanState)
+    //   .onSet(this.handleSetTargetFanState.bind(this))
+    //   .onGet(this.handleGetTargetFanState.bind(this));
   }
 
   get log() {
@@ -167,6 +194,11 @@ export class FanAccessory {
       this.platform.Characteristic.RotationSpeed,
     ).value;
 
+    if (isNaN(value)) {
+      this.log.warn(`RotationSpeed: Value is not a number: ${value}`);
+      return;
+    }
+
     if (currentValue === value) {
       this.log.debug(`RotationSpeed: Already set to: ${value}`);
       return;
@@ -194,6 +226,11 @@ export class FanAccessory {
   handleSetRotationSpeed(value: CharacteristicValue): void {
     const valueToSet = Math.round(Number(value) * 2.54); // TODO: is this correct?
 
+    if (isNaN(valueToSet)) {
+      this.log.warn(`RotationSpeed: Value is not a number: ${value}`);
+      return;
+    }
+
     this.log.info(`Setting RotationSpeed to ${value}/${MAX_ROTATION_SPEED}`);
 
     // Publish to MQTT server to update the rotation speed
@@ -201,18 +238,18 @@ export class FanAccessory {
     this.log.debug('mqttClient.publish', 'itho/cmd', valueToSet.toString());
 
     // The user adjusted the rotation speed manually, so we need to set the TargetFanState to "manual"
-    if (this.targetFanState !== this.platform.Characteristic.TargetFanState.MANUAL) {
-      this.log.info(
-        'Setting TargetFanState to "manual" because the rotation speed is manually adjusted.',
-      );
+    // if (this.targetFanState !== this.platform.Characteristic.TargetFanState.MANUAL) {
+    //   this.log.info(
+    //     'Setting TargetFanState to "manual" because the rotation speed is manually adjusted.',
+    //   );
 
-      this.service.updateCharacteristic(
-        this.platform.Characteristic.TargetFanState,
-        this.platform.Characteristic.TargetFanState.MANUAL,
-      );
-    } else {
-      this.log.debug('TargetFanState already set to "manual", skipping.');
-    }
+    //   this.service.updateCharacteristic(
+    //     this.platform.Characteristic.TargetFanState,
+    //     this.platform.Characteristic.TargetFanState.MANUAL,
+    //   );
+    // } else {
+    //   this.log.debug('TargetFanState already set to "manual", skipping.');
+    // }
 
     // We will receive a message from the MQTT server with the new state
   }
@@ -248,18 +285,18 @@ export class FanAccessory {
     // this.service.setCharacteristic(this.platform.Characteristic.Active, value); // TODO: is this needed? we already listen for changes on the constructor
   }
 
-  async handleSetTargetFanState(value: CharacteristicValue): Promise<void> {
-    // 0 = Manual
-    // 1 = Auto
+  // async handleSetTargetFanState(value: CharacteristicValue): Promise<void> {
+  //   // 0 = Manual
+  //   // 1 = Auto
 
-    const targetFanStateName = this.getTargetFanStateName(value as number);
+  //   const targetFanStateName = this.getTargetFanStateName(value as number);
 
-    this.log.debug(`Setting TargetFanState to ${targetFanStateName} (${value})`);
+  //   this.log.debug(`Setting TargetFanState to ${targetFanStateName} (${value})`);
 
-    // TODO: save to mqtt
+  //   // TODO: save to mqtt
 
-    this.service.updateCharacteristic(this.platform.Characteristic.TargetFanState, value);
-  }
+  //   this.service.updateCharacteristic(this.platform.Characteristic.TargetFanState, value);
+  // }
 
   /**
    * Handle the "GET" requests from HomeKit
@@ -310,16 +347,16 @@ export class FanAccessory {
     return currentValue;
   }
 
-  handleGetTargetFanState(): Nullable<CharacteristicValue> {
-    // 0 = Manual
-    // 1 = Auto
+  // handleGetTargetFanState(): Nullable<CharacteristicValue> {
+  //   // 0 = Manual
+  //   // 1 = Auto
 
-    const currentValue = this.targetFanState;
+  //   const currentValue = this.targetFanState;
 
-    const currentTargetFanStateName = this.getTargetFanStateName(currentValue as number);
+  //   const currentTargetFanStateName = this.getTargetFanStateName(currentValue as number);
 
-    this.log.info(`TargetFanState is ${currentTargetFanStateName} (${currentValue})`);
+  //   this.log.info(`TargetFanState is ${currentTargetFanStateName} (${currentValue})`);
 
-    return currentValue;
-  }
+  //   return currentValue;
+  // }
 }
