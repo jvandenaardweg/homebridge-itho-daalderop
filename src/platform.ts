@@ -97,7 +97,7 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
     } catch (err) {
       if (err instanceof ZodError) {
         const mappedErrors = err.errors.map(err => {
-          return `${err.message} at ${err.path.join('.')}`;
+          return `${err.message} at: ${err.path.join('.')}`;
         });
 
         this.log.error(
@@ -217,7 +217,7 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
     this.log.debug(this.loggerPrefix, 'Attaching accessory to platform:', accessory.displayName);
 
     // Create the accessory handler for the restored accessory
-    new FanAccessory(this, accessory);
+    new FanAccessory(this, accessory, this.config);
   }
 
   attachAirQualitySensorAccessoryToPlatform(
@@ -226,6 +226,6 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
     this.log.debug(this.loggerPrefix, 'Attaching accessory to platform:', accessory.displayName);
 
     // Create the accessory handler for the restored accessory
-    new AirQualitySensorAccessory(this, accessory);
+    new AirQualitySensorAccessory(this, accessory, this.config);
   }
 }

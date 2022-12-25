@@ -8,17 +8,24 @@ export const configSchema = z.object({
   name: z.string({
     required_error: 'A bridge name is required',
   }),
-  mqttBrokerIp: z
-    .string({
-      required_error: 'IP address is required for setup',
-      invalid_type_error: "'ip' must be a string",
-    })
-    .refine(
-      ip => isIP(ip, 4),
-      ip => ({
-        message: `'${ip}' is not a valid IPv4 address`,
-      }),
-    ),
+  api: z.object({
+    protocol: z.enum(['mqtt', 'http']),
+    ip: z
+      .string({
+        required_error: 'IP address is required for setup',
+        invalid_type_error: "'ip' must be a string",
+      })
+      .refine(
+        ip => isIP(ip, 4),
+        ip => ({
+          message: `'${ip}' is not a valid IPv4 address`,
+        }),
+      ),
+    port: z.number({
+      required_error: 'Port is required for setup',
+      invalid_type_error: "'port' must be a number",
+    }),
+  }),
 });
 
 export type ConfigSchema = z.infer<typeof configSchema> & PlatformConfig;

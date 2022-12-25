@@ -15,14 +15,90 @@
         "description": "You'll see this name when you add the bridge in your Home app and also in the logs within Homebridge.",
         "default": "Itho Daalderop"
       },
-      "mqttBrokerIp": {
-        "type": "string",
-        "title": "IP Address of the MQTT broker/server",
-        "placeholder": "192.168.0.10",
-        "description": "This is the IP address you also used in the WiFi module for the MQTT settings.",
-        "format": "ipv4",
-        "required": true
+      "api": {
+        "type": "object",
+        "title": "MQTT Broker settings",
+        "description": "",
+        "properties": {
+          "protocol": {
+            "title": "Which API?",
+            "type": "string",
+            "required": true,
+            "default": "mqtt",
+            "oneOf": [
+              {
+                "title": "Http",
+                "enum": ["http"]
+              },
+              {
+                "title": "MQTT",
+                "enum": ["mqtt"]
+              }
+            ]
+          },
+          "ip": {
+            "type": "string",
+            "title": "IP Address",
+            "placeholder": "192.168.0.10",
+
+            "format": "ipv4",
+            "required": true
+          },
+          "port": {
+            "type": "number",
+            "title": "Port",
+            "placeholder": "1883 (mqtt) or 80 (http)",
+            "required": true
+          }
+        }
       }
     }
-  }
+  },
+  "layout": [
+    {
+      "type": "flex",
+      "flex-flow": "row wrap",
+      "orderable": false,
+      "items": [
+        {
+          "key": "name",
+          "type": "name"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "API Settings",
+      "description": "In order to use MQTT you must have set up a MQTT broker on your network. The Itho Wifi module must be configured to use the same MQTT broker.",
+      "expandable": false,
+      "orderable": false,
+      "items": [
+        {
+          "type": "flex",
+          "flex-flow": "row wrap",
+          "items": [
+            {
+              "type": "flex",
+              "flex-flow": "row wrap",
+              "items": [
+                {
+                  "key": "api.protocol"
+                },
+                {
+                  "key": "api.ip"
+                },
+                {
+                  "key": "api.port"
+                },
+                {
+                  "key": "",
+                  "description": "This is the IP address and port of your MQTT broker. The Itho Wifi module uses this same MQTT broker IP address and port."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

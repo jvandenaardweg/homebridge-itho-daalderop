@@ -5,6 +5,7 @@ import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
 import { DEFAULT_FAN_NAME, MANUFACTURER, MQTT_STATE_TOPIC, MQTT_STATUS_TOPIC } from './settings';
 import { sanitizeMQTTMessage } from './utils/mqtt';
+import { ConfigSchema } from './config.schema';
 
 // https://developers.homebridge.io/#/characteristic/RotationSpeed
 const MAX_ROTATION_SPEED = 100;
@@ -23,11 +24,11 @@ export class FanAccessory {
   constructor(
     private readonly platform: HomebridgeIthoDaalderop,
     private readonly accessory: PlatformAccessory<IthoDaalderopAccessoryContext>,
+    private readonly config: ConfigSchema,
   ) {
     this.log.debug(`Initializing platform accessory`);
 
-    this.mqttClient = mqtt.connect('http://192.168.1.21:1883', {
-      // clientId: `${PLUGIN_NAME}-fan-accessory`,
+    this.mqttClient = mqtt.connect(`http://${this.config.api.ip}:${this.config.api.port}`, {
       reconnectPeriod: 10000, // 10 seconds
     });
 

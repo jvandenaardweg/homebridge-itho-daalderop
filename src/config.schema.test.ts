@@ -22,7 +22,11 @@ describe('config.schema.json', () => {
     const configSchemaValues: ConfigSchema = {
       platform: PLATFORM_NAME,
       name: 'Itho Daalderop',
-      mqttBrokerIp: '192.168.0.10',
+      api: {
+        ip: '192.168.0.10',
+        port: 1883,
+        protocol: 'mqtt',
+      },
     };
 
     const schemaValidation = () => {
