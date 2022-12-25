@@ -7,6 +7,9 @@ export interface IthoDaalderopAccessoryContext {
 // https://github.com/arjenhiemstra/ithowifi/wiki/Controlling-the-speed-of-a-fan
 export type FanInfo = 'auto' | 'low' | 'medium' | 'high' | '1' | '2' | '3';
 
+// Unknown what the values are, my box seems to show "7" when FanInfo is "auto", so i
+export type Selection = 'auto' | 'low' | 'medium' | 'high' | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
 // https://github.com/arjenhiemstra/ithowifi/wiki/Controlling-the-speed-of-a-fan#help-a-speed-command-does-not-work
 export type AutoMode = 'auto' | 'medium' | '3';
 
@@ -41,7 +44,7 @@ export interface IthoStatusSanitizedPayload {
   'Fan setpoint (rpm)': number | null;
   'Fan speed (rpm)': number | null;
   Error: number | null;
-  Selection: number | null;
+  Selection: Selection;
   'Startup counter': number | null;
   'Total operation (hours)': number | null;
   'Absence (min)': number | null;
@@ -56,3 +59,14 @@ export type IthoStatusPayload = {
 };
 
 export type IthoStatePayload = string; // example: "45"
+
+export enum VirtualRemoteOptions {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  TIMER1 = 'timer1',
+  TIMER2 = 'timer2',
+  TIMER3 = 'timer3',
+  JOIN = 'join',
+  LEAVE = 'leave',
+}

@@ -20,6 +20,7 @@ export class FanAccessory {
   private informationService: Service | undefined;
   private mqttClient: mqtt.Client;
   private lastStatusPayload: Nullable<IthoStatusSanitizedPayload> = null;
+  private lastStatePayload: Nullable<number> = null;
 
   constructor(
     private readonly platform: HomebridgeIthoDaalderop,
@@ -57,9 +58,9 @@ export class FanAccessory {
       const messageString = message.toString();
 
       if (topic === MQTT_STATUS_TOPIC) {
-        const data = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
+        const statusPayload = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
 
-        this.lastStatusPayload = data;
+        this.lastStatusPayload = statusPayload;
 
         return;
       }
@@ -67,9 +68,19 @@ export class FanAccessory {
       if (topic === MQTT_STATE_TOPIC) {
         this.log.debug(`Received new state payload: ${messageString}`);
 
-        const rotationSpeed = Math.round(Number(messageString) / 2.54); // TODO: is this correct?
+        const rotationSpeedNumber = Number(messageString);
+
+        this.lastStatePayload = rotationSpeedNumber;
+
+        const rotationSpeed = Math.round(Number(rotationSpeedNumber) / 2.54); // TODO: is this correct?
+
+        // const active =
+        //   rotationSpeed > 0
+        //     ? this.platform.Characteristic.Active.ACTIVE
+        //     : this.platform.Characteristic.Active.INACTIVE;
 
         this.setRotationSpeed(rotationSpeed);
+        // this.setActive(active);
 
         return;
       }
@@ -210,22 +221,64 @@ export class FanAccessory {
     this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, value);
   }
 
+  get isInAutoMode(): boolean {
+    return (
+      this.lastStatusPayload?.FanInfo === 'auto' ||
+      this.lastStatusPayload?.FanInfo === 'medium' ||
+      this.lastStatusPayload?.FanInfo === '3' ||
+      this.lastStatusPayload?.Selection === 'auto' ||
+      this.lastStatusPayload?.Selection === 'medium' ||
+      this.lastStatusPayload?.Selection === 3
+    );
+  }
+
+  setActive(value: number): void {
+    const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
+
+    if (isNaN(value)) {
+      this.log.warn(`Active: Value is not a number: ${value}`);
+      return;
+    }
+
+    if (
+      (value === this.platform.Characteristic.Active.INACTIVE &&
+        this.lastStatusPayload?.FanInfo === 'auto') ||
+      this.lastStatusPayload?.FanInfo === 'medium'
+    ) {
+      this.log.warn(
+        'Important, you are disabling the fan, but it is in auto/medium mode. So it will probably turn on again.',
+      );
+    }
+
+    if (currentValue === value) {
+      // this.log.debug(`Active: Already set to: ${value}`);
+      return;
+    }
+
+    this.log.debug(`Active: Setting to: ${value} (was: ${currentValue})`);
+
+    this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
+  }
+
+  getActiveStateByRotationSpeed(rotationSpeed: number): number {
+    return rotationSpeed >= 20
+      ? this.platform.Characteristic.Active.ACTIVE
+      : this.platform.Characteristic.Active.INACTIVE;
+  }
+
   get targetFanState(): Nullable<CharacteristicValue> {
     return this.service.getCharacteristic(this.platform.Characteristic.TargetFanState).value;
   }
 
   /**
-   * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
+   * User manually changed the rotation speed in the Home App.
    *
    * Do not return anything from this method. Otherwise we'll get this error:
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
-   *
-   * This method is only triggered when the user manually adjusts the rotation speed in the Home App.
-   * So we need to set the TargetFanState to "manual" as well.
    */
   handleSetRotationSpeed(value: CharacteristicValue): void {
-    const valueToSet = Math.round(Number(value) * 2.54); // TODO: is this correct?
+    // A range between 0-254
+    const valueToSet = Math.round(Number(value) * 2.54);
 
     if (isNaN(valueToSet)) {
       this.log.warn(`RotationSpeed: Value is not a number: ${value}`);
@@ -234,9 +287,22 @@ export class FanAccessory {
 
     this.log.info(`Setting RotationSpeed to ${value}/${MAX_ROTATION_SPEED}`);
 
+    if (this.isInAutoMode) {
+      this.log.debug(
+        'Fan is in auto mode. Adjusting the rotation speed manually will probably not work. Switch the fan to another state first.',
+      );
+    }
+
+    // https://github.com/arjenhiemstra/ithowifi/wiki/MQTT-integration#cve-unit
+    const speedPayload = JSON.stringify({
+      // ...(this.isInAutoMode ? { command: VirtualRemo teOptions.MEDIUM } : undefined), // if the fan is in auto mode, we need to switch it out of that mode first
+      // A range between 0-254
+      speed: `${valueToSet}`,
+    });
+
     // Publish to MQTT server to update the rotation speed
-    this.mqttClient.publish('itho/cmd', valueToSet.toString());
-    this.log.debug('mqttClient.publish', 'itho/cmd', valueToSet.toString());
+    this.mqttClient.publish('itho/cmd', speedPayload);
+    this.log.debug('mqttClient.publish', 'itho/cmd', speedPayload);
 
     // The user adjusted the rotation speed manually, so we need to set the TargetFanState to "manual"
     // if (this.targetFanState !== this.platform.Characteristic.TargetFanState.MANUAL) {
@@ -263,27 +329,23 @@ export class FanAccessory {
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
    */
   handleSetActive(value: CharacteristicValue): void {
-    // handle
+    const activeName = this.getActiveName(value as number);
 
-    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
+    this.log.info(`Setting Active to ${value} (${activeName})`);
 
-    this.log.info(`Setting Active to ${value}`);
+    // If value to set is 1 (ACTIVE), then we need to set the fan as active
+    const activate = value === this.platform.Characteristic.Active.ACTIVE;
 
-    const isActive = value === this.platform.Characteristic.Active.ACTIVE;
+    // Publish to MQTT server to update the rotation speed
+    // A rotation speed of 0 will turn the fan off
+    // A rotation speed of 20 will turn the fan on
+    const activeStateValue = activate ? 20 : 0;
+    const activeMqttValue = activeStateValue.toString();
 
-    const onStateValue = isActive ? 20 : 0;
+    this.mqttClient.publish(MQTT_STATE_TOPIC, activeMqttValue);
+    this.log.debug('mqttClient.publish', MQTT_STATE_TOPIC, activeMqttValue);
 
-    this.mqttClient.publish(MQTT_STATE_TOPIC, onStateValue.toString());
-    this.log.debug('mqttClient.publish', MQTT_STATE_TOPIC, onStateValue.toString());
-
-    this.service.updateCharacteristic(
-      this.platform.Characteristic.CurrentFanState,
-      isActive
-        ? this.platform.Characteristic.CurrentFanState.BLOWING_AIR
-        : this.platform.Characteristic.CurrentFanState.INACTIVE,
-    );
-
-    // this.service.setCharacteristic(this.platform.Characteristic.Active, value); // TODO: is this needed? we already listen for changes on the constructor
+    this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
   }
 
   // async handleSetTargetFanState(value: CharacteristicValue): Promise<void> {
@@ -313,10 +375,6 @@ export class FanAccessory {
    * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
    */
   handleGetActive(): Nullable<CharacteristicValue> {
-    // handle
-
-    // TODO: https://github.com/arjenhiemstra/ithowifi/wiki/HomeBridge#configuration
-
     const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
 
     const activeName = this.getActiveName(currentValue as number);
