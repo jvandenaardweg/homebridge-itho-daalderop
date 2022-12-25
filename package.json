@@ -2,7 +2,7 @@
   "displayName": "Homebridge Itho Daalderop",
   "name": "homebridge-itho-daalderop",
   "version": "0.0.1",
-  "description": "This Homebridge plugin exposes your Itho Daalderop fan units to Apple HomeKit by using the WiFi Add-on module. So you can use the Home App to control your fan units and integrate into your Home Automations.",
+  "description": "This Homebridge plugin exposes your Itho Daalderop mechanical fan unit to Apple HomeKit by using the WiFi Add-on module. So you can use the Home App to control your fan units and integrate into your Home Automations.",
   "license": "MIT",
   "author": {
     "name": "Jordy van den Aardweg",
