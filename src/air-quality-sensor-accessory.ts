@@ -213,16 +213,6 @@ export class AirQualitySensorAccessory {
     );
   }
 
-  /**
-   * Some reference: https://www.breeze-technologies.de/blog/calculating-an-actionable-indoor-air-quality-index/
-   *
-   * Excellent	  1	0 - 400	      The air inside is as fresh as the air outside.
-   * Fine	        2	400 - 1000	  The air quality inside remains at harmless levels.
-   * Moderate	    3	1000 - 1500	  The air quality inside has reached conspicuous levels.
-   * Poor	        4	1500 - 2000	  The air quality inside has reached precarious levels.
-   * Very Poor	  5	2000 - 5000	  The air quality inside has reached unacceptable levels.
-   * Severe	      6	from 5000	    The air quality inside has exceeded maximum workplace concentration values.
-   */
   getAirQualityFromStatusPayload(data: IthoStatusSanitizedPayload): number {
     const ppm = data['CO2level (ppm)'];
 
@@ -237,10 +227,11 @@ export class AirQualitySensorAccessory {
   }
 
   handleMqttMessage(topic: string, message: Buffer): void {
-    const messageString = message.toString();
-
     // this.log.debug(`Received new status payload: ${message.toString()}`);
+
     if (topic === MQTT_STATUS_TOPIC) {
+      const messageString = message.toString();
+
       const sanitizedStatusPayload =
         sanitizeStatusPayload<IthoStatusSanitizedPayload>(messageString);
 

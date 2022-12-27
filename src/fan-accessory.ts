@@ -2,15 +2,18 @@ import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homeb
 
 import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
-import { DEFAULT_FAN_NAME, MANUFACTURER, MQTT_STATE_TOPIC, MQTT_STATUS_TOPIC } from './settings';
+import {
+  DEFAULT_FAN_NAME,
+  MANUFACTURER,
+  MAX_ROTATION_SPEED,
+  MQTT_STATE_TOPIC,
+  MQTT_STATUS_TOPIC,
+} from './settings';
 import { sanitizeStatusPayload } from './utils/api';
 import { ConfigSchema } from './config.schema';
 import { isNil } from './utils';
 import { HttpApi } from './api/http';
 import { MqttApi } from './api/mqtt';
-
-// https://developers.homebridge.io/#/characteristic/RotationSpeed
-const MAX_ROTATION_SPEED = 100;
 
 /**
  * Platform Accessory
