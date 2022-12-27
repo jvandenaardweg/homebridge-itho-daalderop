@@ -111,7 +111,6 @@ export class FanAccessory {
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.displayName);
 
     // Set the fan active as default
-    // TODO: get status from mqtt
     this.service.setCharacteristic(
       this.platform.Characteristic.Active,
       this.platform.Characteristic.Active.ACTIVE,
@@ -225,7 +224,7 @@ export class FanAccessory {
     }
 
     if (currentValue === value) {
-      // this.log.debug(`Active: Already set to: ${value}`);
+      this.log.debug(`Active: Already set to: ${value}`);
       return;
     }
 
@@ -324,8 +323,8 @@ export class FanAccessory {
 
     if (this.mqttApiClient) {
       // https://github.com/arjenhiemstra/ithowifi/wiki/MQTT-integration#cve-unit
+      // TODO: find out how to bypass the "auto" state, as it falls back to auto after a few seconds.
       const speedPayload = JSON.stringify({
-        // ...(this.isInAutoMode ? { command: VirtualRemo teOptions.MEDIUM } : undefined), // if the fan is in auto mode, we need to switch it out of that mode first
         // A range between 0-254
         speed: `${valueToSet}`,
       });

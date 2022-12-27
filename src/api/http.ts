@@ -46,6 +46,7 @@ export class HttpApi {
     return this.logger.debug('[HTTP API] ->', ...args);
   }
 
+  // TODO: find better way for response events
   on<T extends IthoStatusSanitizedPayload>(
     event: 'response.getStatus',
     listener: (response: T) => void,
