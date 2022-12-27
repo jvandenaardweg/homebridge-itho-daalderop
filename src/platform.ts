@@ -126,7 +126,7 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
       if (!existingAccessory) {
         // The accessory does not yet exist, so we need to create it
 
-        this.log.info(this.loggerPrefix, 'Adding new accessory:', uuid);
+        this.log.info(this.loggerPrefix, 'Adding new fan accessory:', uuid);
 
         // Create a new accessory
         const newAccessory = new this.api.platformAccessory<IthoDaalderopAccessoryContext>(
@@ -148,7 +148,7 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
       // The accessory already exists, so we can restore it from our cache
       this.log.info(
         this.loggerPrefix,
-        `Restoring existing accessory from cache: ${existingAccessory.displayName}`,
+        `Restoring existing fan accessory from cache: ${existingAccessory.displayName}`,
       );
 
       // Update the existing accessory with the new data, for example, the IP address might have changed
@@ -160,7 +160,7 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
     } catch (error) {
       this.log.error(
         this.loggerPrefix,
-        `Error while adding the accessory: ${JSON.stringify(error)}`,
+        `Error while adding the fan accessory: ${JSON.stringify(error)}`,
       );
     }
   }
@@ -174,7 +174,7 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
       if (!existingAccessory) {
         // The accessory does not yet exist, so we need to create it
 
-        this.log.info(this.loggerPrefix, 'Adding new accessory:', uuid);
+        this.log.info(this.loggerPrefix, 'Adding new air quality sensor accessory:', uuid);
 
         // Create a new accessory
         const newAccessory = new this.api.platformAccessory<IthoDaalderopAccessoryContext>(
@@ -196,7 +196,7 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
       // The accessory already exists, so we can restore it from our cache
       this.log.info(
         this.loggerPrefix,
-        `Restoring existing accessory from cache: ${existingAccessory.displayName}`,
+        `Restoring existing air quality sensor accessory from cache: ${existingAccessory.displayName}`,
       );
 
       // Update the existing accessory with the new data, for example, the IP address might have changed
@@ -208,13 +208,17 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
     } catch (error) {
       this.log.error(
         this.loggerPrefix,
-        `Error while adding the accessory: ${JSON.stringify(error)}`,
+        `Error while adding the air quality sensor accessory: ${JSON.stringify(error)}`,
       );
     }
   }
 
   attachFanAccessoryToPlatform(accessory: PlatformAccessory<IthoDaalderopAccessoryContext>): void {
-    this.log.debug(this.loggerPrefix, 'Attaching accessory to platform:', accessory.displayName);
+    this.log.debug(
+      this.loggerPrefix,
+      'Attaching fan accessory to platform:',
+      accessory.displayName,
+    );
 
     // Create the accessory handler for the restored accessory
     new FanAccessory(this, accessory, this.config);
@@ -223,7 +227,11 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
   attachAirQualitySensorAccessoryToPlatform(
     accessory: PlatformAccessory<IthoDaalderopAccessoryContext>,
   ): void {
-    this.log.debug(this.loggerPrefix, 'Attaching accessory to platform:', accessory.displayName);
+    this.log.debug(
+      this.loggerPrefix,
+      'Attaching air qualoty sensor accessory to platform:',
+      accessory.displayName,
+    );
 
     // Create the accessory handler for the restored accessory
     new AirQualitySensorAccessory(this, accessory, this.config);
