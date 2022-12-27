@@ -28,7 +28,10 @@ It is required to have installed and configured the [WiFi Add-on module](https:/
 
 ### MQTT
 
-Using the MQTT API is optional, the plugin will use the HTTP API by default. Using MQTT is recommended as it is more reliable and faster than the HTTP API.
+Using the MQTT API is optional, the plugin will use the HTTP API by default as it requires no additional software to be present in your network.
+
+However, using MQTT is recommended as it is more reliable and faster than the HTTP API.
+
 If you want to use the MQTT API, you will need to install and configure a MQTT broker on your local network. I recommend using [Mosquitto](https://mosquitto.org/).
 The IP address of the MQTT broker is required to configure the plugin in Homebridge and in the WiFi Add-on module.
 
