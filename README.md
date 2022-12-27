@@ -24,7 +24,7 @@ This Homebridge plugin exposes your [Itho Daalderop](https://www.ithodaalderop.n
 
 ## Requirements
 
-It is required to have installed and configured the [WiFi Add-on module](https://github.com/arjenhiemstra/ithowifi) for your fan unit. More info about this module and for a complete list on what mechanical ventilation models models are supported, please take a look at [Arjan Hiemstra's GitHub repository](https://github.com/arjenhiemstra/ithowifi) or this forum thread on Tweakers.net (Dutch): [Itho Daalderop WiFi Add-on module](https://gathering.tweakers.net/forum/list_messages/1892019).
+It is required to have installed and configured the [WiFi Add-on module](https://github.com/arjenhiemstra/ithowifi) for your fan unit. More info about this module and for a complete list on what mechanical ventilation models models are supported, please take a look at [Arjan Hiemstra's GitHub repository](https://github.com/arjenhiemstra/ithowifi) or this forum thread on Tweakers.net (Dutch): [Itho Daalderop - open source wifi control add-on module](https://gathering.tweakers.net/forum/list_messages/1976492).
 
 ### MQTT
 
