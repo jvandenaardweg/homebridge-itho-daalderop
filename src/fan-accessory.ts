@@ -6,6 +6,7 @@ import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './typ
 import { DEFAULT_FAN_NAME, MANUFACTURER, MQTT_STATE_TOPIC, MQTT_STATUS_TOPIC } from './settings';
 import { sanitizeMQTTMessage } from './utils/mqtt';
 import { ConfigSchema } from './config.schema';
+import { isNil } from './utils';
 
 // https://developers.homebridge.io/#/characteristic/RotationSpeed
 const MAX_ROTATION_SPEED = 100;
@@ -20,6 +21,7 @@ export class FanAccessory {
   private informationService: Service | undefined;
   private mqttClient: mqtt.Client;
   private lastStatusPayload: Nullable<IthoStatusSanitizedPayload> = null;
+  /** A number between 0 and 254 */
   private lastStatePayload: Nullable<number> = null;
 
   constructor(
@@ -29,7 +31,11 @@ export class FanAccessory {
   ) {
     this.log.debug(`Initializing platform accessory`);
 
-    this.mqttClient = mqtt.connect(`http://${this.config.api.ip}:${this.config.api.port}`, {
+    this.mqttClient = mqtt.connect({
+      host: this.config.api.ip,
+      port: this.config.api.port,
+      username: this.config.api.username,
+      password: this.config.api.password,
       reconnectPeriod: 10000, // 10 seconds
     });
 
@@ -46,45 +52,9 @@ export class FanAccessory {
 
     this.mqttClient.subscribe([MQTT_STATE_TOPIC, MQTT_STATUS_TOPIC]);
 
-    this.mqttClient.on('connect', packet => {
-      this.log.info(`MQTT connect: ${JSON.stringify(packet)}`);
-    });
-
-    this.mqttClient.on('error', err => {
-      this.log.error(`MQTT error: ${JSON.stringify(err)}`);
-    });
-
-    this.mqttClient.on('message', (topic, message) => {
-      const messageString = message.toString();
-
-      if (topic === MQTT_STATUS_TOPIC) {
-        const statusPayload = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
-
-        this.lastStatusPayload = statusPayload;
-
-        return;
-      }
-
-      if (topic === MQTT_STATE_TOPIC) {
-        this.log.debug(`Received new state payload: ${messageString}`);
-
-        const rotationSpeedNumber = Number(messageString);
-
-        this.lastStatePayload = rotationSpeedNumber;
-
-        const rotationSpeed = Math.round(Number(rotationSpeedNumber) / 2.54); // TODO: is this correct?
-
-        // const active =
-        //   rotationSpeed > 0
-        //     ? this.platform.Characteristic.Active.ACTIVE
-        //     : this.platform.Characteristic.Active.INACTIVE;
-
-        this.setRotationSpeed(rotationSpeed);
-        // this.setActive(active);
-
-        return;
-      }
-    });
+    this.mqttClient.on('connect', this.handleMqttConnect.bind(this));
+    this.mqttClient.on('error', this.handleMqttError.bind(this));
+    this.mqttClient.on('message', this.handleMqttMessage.bind(this));
 
     const informationService = this.accessory.getService(
       this.platform.Service.AccessoryInformation,
@@ -177,6 +147,69 @@ export class FanAccessory {
     );
   }
 
+  get isInAutoMode(): boolean {
+    return (
+      this.lastStatusPayload?.FanInfo === 'auto' ||
+      this.lastStatusPayload?.FanInfo === 'medium' ||
+      this.lastStatusPayload?.FanInfo === '3' ||
+      this.lastStatusPayload?.Selection === 'auto' ||
+      this.lastStatusPayload?.Selection === 'medium' ||
+      this.lastStatusPayload?.Selection === 3
+    );
+  }
+
+  get targetFanState(): Nullable<CharacteristicValue> {
+    return this.service.getCharacteristic(this.platform.Characteristic.TargetFanState).value;
+  }
+
+  setRotationSpeed(value: number): void {
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.RotationSpeed,
+    ).value;
+
+    if (isNaN(value)) {
+      this.log.error(`RotationSpeed: Value is not a number: ${value}`);
+      return;
+    }
+
+    if (currentValue === value) {
+      this.log.debug(`RotationSpeed: Already set to: ${value}`);
+      return;
+    }
+
+    this.log.debug(`RotationSpeed: Setting to: ${value} (was: ${currentValue})`);
+
+    this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, value);
+  }
+
+  setActive(value: number): void {
+    const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
+
+    if (isNaN(value)) {
+      this.log.error(`Active: Value is not a number: ${value}`);
+      return;
+    }
+
+    if (
+      (value === this.platform.Characteristic.Active.INACTIVE &&
+        this.lastStatusPayload?.FanInfo === 'auto') ||
+      this.lastStatusPayload?.FanInfo === 'medium'
+    ) {
+      this.log.warn(
+        'Important, you are disabling the fan, but it is in auto/medium mode. So it will probably turn on again.',
+      );
+    }
+
+    if (currentValue === value) {
+      // this.log.debug(`Active: Already set to: ${value}`);
+      return;
+    }
+
+    this.log.debug(`Active: Setting to: ${value} (was: ${currentValue})`);
+
+    this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
+  }
+
   getTargetFanStateName(value: number): string | undefined {
     // If "manual" => The fan should be controlled manually.
     // If "auto" => The fan should be controlled automatically.
@@ -201,77 +234,46 @@ export class FanAccessory {
     );
   }
 
-  setRotationSpeed(value: number): void {
-    const currentValue = this.service.getCharacteristic(
-      this.platform.Characteristic.RotationSpeed,
-    ).value;
-
-    if (isNaN(value)) {
-      this.log.warn(`RotationSpeed: Value is not a number: ${value}`);
-      return;
-    }
-
-    if (currentValue === value) {
-      this.log.debug(`RotationSpeed: Already set to: ${value}`);
-      return;
-    }
-
-    this.log.debug(`RotationSpeed: Setting to: ${value} (was: ${currentValue})`);
-
-    this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, value);
-  }
-
-  get isInAutoMode(): boolean {
-    return (
-      this.lastStatusPayload?.FanInfo === 'auto' ||
-      this.lastStatusPayload?.FanInfo === 'medium' ||
-      this.lastStatusPayload?.FanInfo === '3' ||
-      this.lastStatusPayload?.Selection === 'auto' ||
-      this.lastStatusPayload?.Selection === 'medium' ||
-      this.lastStatusPayload?.Selection === 3
-    );
-  }
-
-  setActive(value: number): void {
-    const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
-
-    if (isNaN(value)) {
-      this.log.warn(`Active: Value is not a number: ${value}`);
-      return;
-    }
-
-    if (
-      (value === this.platform.Characteristic.Active.INACTIVE &&
-        this.lastStatusPayload?.FanInfo === 'auto') ||
-      this.lastStatusPayload?.FanInfo === 'medium'
-    ) {
-      this.log.warn(
-        'Important, you are disabling the fan, but it is in auto/medium mode. So it will probably turn on again.',
-      );
-    }
-
-    if (currentValue === value) {
-      // this.log.debug(`Active: Already set to: ${value}`);
-      return;
-    }
-
-    this.log.debug(`Active: Setting to: ${value} (was: ${currentValue})`);
-
-    this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
-  }
-
   getActiveStateByRotationSpeed(rotationSpeed: number): number {
     return rotationSpeed >= 20
       ? this.platform.Characteristic.Active.ACTIVE
       : this.platform.Characteristic.Active.INACTIVE;
   }
 
-  get targetFanState(): Nullable<CharacteristicValue> {
-    return this.service.getCharacteristic(this.platform.Characteristic.TargetFanState).value;
+  handleMqttConnect(packet: mqtt.IConnackPacket) {
+    this.log.info(`MQTT connect: ${JSON.stringify(packet)}`);
+  }
+
+  handleMqttError(error: Error) {
+    this.log.error(`MQTT error: ${JSON.stringify(error)}`);
+  }
+
+  handleMqttMessage(topic: string, message: Buffer): void {
+    const messageString = message.toString();
+
+    if (topic === MQTT_STATUS_TOPIC) {
+      const statusPayload = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
+
+      this.lastStatusPayload = statusPayload;
+
+      return;
+    }
+
+    if (topic === MQTT_STATE_TOPIC) {
+      this.log.debug(`Received new state payload: ${messageString}`);
+
+      const rotationSpeedNumber = Number(messageString);
+
+      this.lastStatePayload = rotationSpeedNumber;
+
+      return;
+    }
   }
 
   /**
    * User manually changed the rotation speed in the Home App.
+   *
+   * The value is a range between 0-100. We need to convert it to a range between 0-254.
    *
    * Do not return anything from this method. Otherwise we'll get this error:
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
@@ -281,7 +283,7 @@ export class FanAccessory {
     const valueToSet = Math.round(Number(value) * 2.54);
 
     if (isNaN(valueToSet)) {
-      this.log.warn(`RotationSpeed: Value is not a number: ${value}`);
+      this.log.error(`RotationSpeed: Value is not a number: ${value}`);
       return;
     }
 
@@ -375,7 +377,21 @@ export class FanAccessory {
    * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
    */
   handleGetActive(): Nullable<CharacteristicValue> {
-    const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
+    const rotationSpeed = this.service.getCharacteristic(
+      this.platform.Characteristic.RotationSpeed,
+    ).value;
+
+    if (isNil(rotationSpeed)) {
+      this.log.warn('RotationSpeed is not set yet, returning "inactive"');
+      return this.platform.Characteristic.Active.INACTIVE;
+    }
+
+    const currentValue =
+      rotationSpeed > 0
+        ? this.platform.Characteristic.Active.ACTIVE
+        : this.platform.Characteristic.Active.INACTIVE;
+
+    // const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
 
     const activeName = this.getActiveName(currentValue as number);
 
@@ -385,26 +401,26 @@ export class FanAccessory {
   }
 
   handleGetRotationSpeed(): Nullable<CharacteristicValue> {
-    const currentValue = this.service.getCharacteristic(
-      this.platform.Characteristic.RotationSpeed,
-    ).value;
+    const rotationSpeedNumber = this.lastStatePayload;
 
-    this.log.info(`RotationSpeed is ${currentValue}/${MAX_ROTATION_SPEED}`);
+    const rotationSpeed = Math.round(Number(rotationSpeedNumber) / 2.54);
 
-    return currentValue;
+    this.log.info(`RotationSpeed is ${rotationSpeed}/${MAX_ROTATION_SPEED}`);
+
+    return rotationSpeed;
   }
 
-  handleGetCurrentFanState(): Nullable<CharacteristicValue> {
-    const currentValue = this.service.getCharacteristic(
-      this.platform.Characteristic.CurrentFanState,
-    ).value;
+  // handleGetCurrentFanState(): Nullable<CharacteristicValue> {
+  //   const currentValue = this.service.getCharacteristic(
+  //     this.platform.Characteristic.CurrentFanState,
+  //   ).value;
 
-    const currentFanStateName = this.getCurrentFanStateName(currentValue as number);
+  //   const currentFanStateName = this.getCurrentFanStateName(currentValue as number);
 
-    this.log.debug(`CurrentFanState is ${currentFanStateName} (${currentValue})`);
+  //   this.log.debug(`CurrentFanState is ${currentFanStateName} (${currentValue})`);
 
-    return currentValue;
-  }
+  //   return currentValue;
+  // }
 
   // handleGetTargetFanState(): Nullable<CharacteristicValue> {
   //   // 0 = Manual
