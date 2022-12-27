@@ -16,6 +16,32 @@ describe('config.schema.json', () => {
     expect(properties.name.required).toBe(true);
     expect(properties.name.type).toBe('string');
     expect(properties.name.default).toBe(DEFAULT_BRIDGE_NAME);
+
+    const apiProperties = properties.api.properties;
+
+    expect(apiProperties.protocol).toHaveProperty('required');
+    expect(apiProperties.protocol.required).toBe(true);
+    expect(apiProperties.protocol.type).toBe('string');
+    expect(apiProperties.protocol.default).toBe('mqtt');
+    expect(apiProperties.protocol.oneOf.map(o => o.title)).toMatchObject(['HTTP', 'MQTT']);
+    expect(apiProperties.protocol.oneOf.map(o => o.enum)).toMatchObject([['http'], ['mqtt']]);
+
+    expect(apiProperties.ip).toHaveProperty('required');
+    expect(apiProperties.ip.required).toBe(true);
+    expect(apiProperties.ip.type).toBe('string');
+    expect(apiProperties.ip.format).toBe('ipv4');
+
+    expect(apiProperties.port).toHaveProperty('required');
+    expect(apiProperties.port.required).toBe(true);
+    expect(apiProperties.port.type).toBe('number');
+
+    expect(apiProperties.username).toHaveProperty('required');
+    expect(apiProperties.username.required).toBe(false);
+    expect(apiProperties.username.type).toBe('string');
+
+    expect(apiProperties.password).toHaveProperty('required');
+    expect(apiProperties.password.required).toBe(false);
+    expect(apiProperties.password.type).toBe('string');
   });
 
   it('should succeed the validation with valid config values', () => {

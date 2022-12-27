@@ -32,3 +32,6 @@ export const MQTT_STATE_TOPIC = 'itho/state';
  * @link: https://github.com/arjenhiemstra/ithowifi/wiki/MQTT-integration#ithocmd-change-device-settings
  */
 export const MQTT_CMD_TOPIC = 'itho/cmd';
+
+// https://developers.homebridge.io/#/characteristic/RotationSpeed
+export const MAX_ROTATION_SPEED = 100;
