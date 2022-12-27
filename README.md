@@ -17,8 +17,9 @@ This Homebridge plugin exposes your [Itho Daalderop](https://www.ithodaalderop.n
 
 ## Features
 
-- Control fan unit from within the Home App
-- Use your fan unit in your Home Automations
+- Control your mechanical ventilation unit from within the Home App
+- Use your mechanical ventilation unit in your Home Automations
+- Supports both MQTT and HTTP API. The HTTP API is enabled by default.
 
 etc...
 
@@ -26,11 +27,15 @@ README is being worked on, please be patient. Addon is published to NPM for test
 
 ## Requirements
 
-It is required to have bought and installed the [WiFi Add-on module](https://github.com/arjenhiemstra/ithowifi) for your fan unit. More info about this module and for a complete list on what models are supported, please take a look at [Arjan Hiemstra's GitHub repository](https://github.com/arjenhiemstra/ithowifi).
+It is required to have installed and configured the [WiFi Add-on module](https://github.com/arjenhiemstra/ithowifi) for your fan unit. More info about this module and for a complete list on what mechanical ventilation models models are supported, please take a look at [Arjan Hiemstra's GitHub repository](https://github.com/arjenhiemstra/ithowifi).
 
-Or the forum thread on Tweakers:
-https://gathering.tweakers.net/forum/list_messages/1976492
+Or this forum thread on Tweakers.net (Dutch): [Itho Daalderop WiFi Add-on module](https://gathering.tweakers.net/forum/list_messages/1892019).
 
 ## Getting started
 
-1,2,3
+1. Go to your Homebridge UI and click on "Plugins"
+2. Search for `Itho Daalderop` and select the plugin `Homebridge Itho Daalderop` from `@jvandenaardweg` and click "Install"
+3. On the plugin Settings, configure the API settings. Click Save.
+4. Click the little QR code icon for the plugin and enable the bridge. Save it and restart Homebridge.
+5. After restarting Homebridge, click the QR code icon again and scan the QR code with your iPhone using the Home App. This will add the plugin bridge to your Home App.
+6. Your Mechanical Ventilation unit should now be available to configure in the Home App
