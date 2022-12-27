@@ -1,4 +1,4 @@
-import { IthoStatusPayload } from '@/types';
+import { IthoGetSpeedResponse, IthoSetSpeedResponse, IthoStatusSanitizedPayload } from '@/types';
 import { sanitizeStatusPayload } from '@/utils/api';
 import EventEmitter from 'events';
 import { Logger } from 'homebridge';
@@ -10,13 +10,15 @@ interface HttpApiOptions {
   ip: string;
   username?: string;
   password?: string;
+  verboseLogging?: boolean;
   logger: Logger;
 }
 
 export class HttpApi {
   private readonly url: URL;
   private readonly eventEmitter: EventEmitter;
-  private readonly log: Logger;
+  private readonly logger: Logger;
+  private readonly verboseLogging: boolean;
   protected isPolling: Record<string, boolean> = {};
 
   constructor(options: HttpApiOptions) {
@@ -32,22 +34,38 @@ export class HttpApi {
 
     this.eventEmitter = new EventEmitter();
 
-    this.log = options.logger;
+    this.logger = options.logger;
+
+    this.verboseLogging = options.verboseLogging || false;
   }
 
-  on<T>(event: 'response', listener: (response: T) => void): void;
+  protected log(...args: unknown[]): void {
+    if (!this.logger) return;
+    if (!this.verboseLogging) return;
+
+    return this.logger.debug('[HTTP API] ->', ...args);
+  }
+
+  on<T extends IthoStatusSanitizedPayload>(
+    event: 'response.getStatus',
+    listener: (response: T) => void,
+  ): void;
+  on<T extends IthoGetSpeedResponse>(
+    event: 'response.getSpeed',
+    listener: (response: T) => void,
+  ): void;
   on(event: 'error', listener: (error: Error) => void): void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on(event: string, listener: (...args: any[]) => void) {
     return this.eventEmitter.on(event, listener);
   }
 
-  async setSpeed<T extends number>(speed: number): Promise<T> {
+  async setSpeed<T extends IthoSetSpeedResponse>(speed: number): Promise<T> {
     // Make a copy of the URL so we don't modify the original
     const requestUrl = new URL(this.url.toString());
     requestUrl.searchParams.set('speed', speed.toString());
 
-    this.log.debug(`[API] -> Setting speed to ${speed} at ${requestUrl}`);
+    this.log(`Setting speed to ${speed} at ${requestUrl}`);
 
     const response = await request(requestUrl, {
       method: 'GET',
@@ -64,12 +82,12 @@ export class HttpApi {
     return speed as T;
   }
 
-  async getSpeed<T extends number>(): Promise<T> {
+  async getSpeed<T extends IthoGetSpeedResponse>(): Promise<T> {
     // Make a copy of the URL so we don't modify the original
     const requestUrl = new URL(this.url.toString());
     requestUrl.searchParams.set('get', 'currentspeed');
 
-    this.log.debug(`[API] -> Getting speed at ${requestUrl}`);
+    this.log(`Getting speed at ${requestUrl}`);
 
     const response = await request(requestUrl, {
       method: 'GET',
@@ -90,12 +108,12 @@ export class HttpApi {
     return currentSpeed as T;
   }
 
-  async getStatus<T extends IthoStatusPayload>(): Promise<T> {
+  async getStatus<T extends IthoStatusSanitizedPayload>(): Promise<T> {
     // Make a copy of the URL so we don't modify the original
     const requestUrl = new URL(this.url.toString());
     requestUrl.searchParams.set('get', 'ithostatus');
 
-    this.log.debug(`[API] -> Getting status at ${requestUrl}`);
+    this.log(`Getting status at ${requestUrl}`);
 
     const response = await request(requestUrl, {
       method: 'GET',
@@ -140,13 +158,13 @@ export class HttpApi {
    */
   protected stopPolling(method: string): void {
     if (!this.isPolling[method]) {
-      this.log.debug(`Polling for "${method}" is not started or already stopped.`);
+      this.log(`Polling for "${method}" is not started or already stopped.`);
       return;
     }
 
     this.isPolling[method] = false;
 
-    this.log.debug(`Stopping polling for "${method}".`);
+    this.log(`Stopping polling for "${method}".`);
   }
 
   protected async startPolling(method: string, apiMethod: () => Promise<unknown>): Promise<void> {
@@ -156,19 +174,19 @@ export class HttpApi {
       try {
         const response = await apiMethod();
 
-        this.log.debug(
+        this.log(
           `Received response while polling "${method}". Emitting "response": ${JSON.stringify(
             response,
           )}`,
         );
 
-        this.eventEmitter.emit('response', response);
+        this.eventEmitter.emit(`response.${method}`, response);
       } catch (error) {
-        this.log.debug(`Received error while polling "${method}": ${JSON.stringify(error)}`);
+        this.log(`Received error while polling "${method}": ${JSON.stringify(error)}`);
 
-        this.eventEmitter.emit('error', error);
+        this.eventEmitter.emit(`error.${method}`, error);
       } finally {
-        this.log.debug(`Waiting for next polling interval for "${method}"...`);
+        this.log(`Waiting for next polling interval for "${method}"...`);
         await new Promise(resolve => setTimeout(resolve, DEFAULT_POLLING_INTERVAL));
       }
     }

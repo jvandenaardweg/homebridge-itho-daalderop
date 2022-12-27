@@ -2,20 +2,6 @@ import { z } from 'zod';
 import isIP from 'validator/lib/isIP';
 import { PlatformConfig } from 'homebridge';
 
-// const customErrorMap: z.ZodErrorMap = (issue, ctx) => {
-//   if (issue.code === z.ZodIssueCode.invalid_type) {
-//     if (issue.expected === 'string') {
-//       return { message: 'bad type!' };
-//     }
-//   }
-//   if (issue.code === z.ZodIssueCode.custom) {
-//     return { message: `less-than-${(issue.params || {}).minimum}` };
-//   }
-//   return { message: ctx.defaultError };
-// };
-
-// z.setErrorMap(customErrorMap);
-
 // this schema should match the config.schema.json
 // using zod to validate the config gives us type-safety over the config in our code
 export const configSchema = z.object({
@@ -50,6 +36,11 @@ export const configSchema = z.object({
       })
       .optional(),
   }),
+  verboseLogging: z
+    .boolean({
+      invalid_type_error: "'verboseLogging' must be a boolean",
+    })
+    .optional(),
 });
 
 export type ConfigSchema = z.infer<typeof configSchema> & PlatformConfig;

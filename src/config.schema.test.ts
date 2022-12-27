@@ -7,6 +7,8 @@ import { DEFAULT_BRIDGE_NAME, PLATFORM_NAME } from './settings';
 describe('config.schema.json', () => {
   it('should have the correct name property', async () => {
     const nameProperty: keyof ConfigSchema = 'name';
+    const apiProperty: keyof ConfigSchema = 'api';
+    const verboseLoggingProperty: keyof ConfigSchema = 'verboseLogging';
 
     const properties = configSchemaJson.schema.properties;
 
@@ -17,8 +19,15 @@ describe('config.schema.json', () => {
     expect(properties.name.type).toBe('string');
     expect(properties.name.default).toBe(DEFAULT_BRIDGE_NAME);
 
+    expect(properties).toHaveProperty(verboseLoggingProperty);
+    expect(properties.verboseLogging).toHaveProperty('required');
+    expect(properties.verboseLogging.required).toBe(false);
+    expect(properties.verboseLogging.type).toBe('boolean');
+    expect(properties.verboseLogging.default).toBe(false);
+
     const apiProperties = properties.api.properties;
 
+    expect(properties).toHaveProperty(apiProperty);
     expect(apiProperties.protocol).toHaveProperty('required');
     expect(apiProperties.protocol.required).toBe(true);
     expect(apiProperties.protocol.type).toBe('string');

@@ -36,6 +36,7 @@ export class AirQualitySensorAccessory {
         username: this.config.api.username,
         password: this.config.api.password,
         logger: this.platform.log,
+        verboseLogging: this.config.verboseLogging,
       });
 
       this.mqttApiClient.subscribe(MQTT_STATUS_TOPIC);
@@ -49,6 +50,7 @@ export class AirQualitySensorAccessory {
       username: this.config.api.username,
       password: this.config.api.password,
       logger: this.platform.log,
+      verboseLogging: this.config.verboseLogging,
     });
 
     // Only start polling if we're using the HTTP API
@@ -57,8 +59,8 @@ export class AirQualitySensorAccessory {
 
       this.log.debug(`Starting polling for status...`);
 
-      this.httpApiClient.polling.getStatus.on('response', response => {
-        this.handleStatusResponse(response as IthoStatusSanitizedPayload); // TODO: fix type
+      this.httpApiClient.polling.getStatus.on('response.getStatus', response => {
+        this.handleStatusResponse(response as IthoStatusSanitizedPayload);
       });
     }
 
@@ -124,6 +126,7 @@ export class AirQualitySensorAccessory {
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       debug: (...parameters: any[]) => {
+        if (!this.config.verboseLogging) return;
         this.platform.log.debug(loggerPrefix, ...parameters);
       },
     };
@@ -138,7 +141,7 @@ export class AirQualitySensorAccessory {
     const currentAirQualityName = this.getAirQualityName(currentValue as number);
 
     if (currentValue === value) {
-      // this.log.debug(`AirQuality: Already set to: ${newAirQualityName}. Ignoring.`);
+      this.log.debug(`AirQuality: Already set to: ${newAirQualityName}. Ignoring.`);
       return;
     }
 
@@ -156,7 +159,7 @@ export class AirQualitySensorAccessory {
     const roundedValue = Math.round(value);
 
     if (currentValue === roundedValue) {
-      // this.log.debug(`CurrentRelativeHumidity: Already set to: ${value}. Ignoring.`);
+      this.log.debug(`CurrentRelativeHumidity: Already set to: ${value}. Ignoring.`);
       return;
     }
 
@@ -179,7 +182,7 @@ export class AirQualitySensorAccessory {
     const parsedCurrentValue = parseFloat((currentValue as number).toFixed(1));
 
     if (parsedCurrentValue === parsedValue) {
-      // this.log.debug(`CurrentTemperature: Already set to: ${parsedValue}. Ignoring.`);
+      this.log.debug(`CurrentTemperature: Already set to: ${parsedValue}. Ignoring.`);
       return;
     }
 
@@ -194,7 +197,7 @@ export class AirQualitySensorAccessory {
     ).value;
 
     if (currentValue === value) {
-      // this.log.debug(`CarbonDioxideLevel: Already set to: ${value}. Ignoring.`);
+      this.log.debug(`CarbonDioxideLevel: Already set to: ${value}. Ignoring.`);
       return;
     }
 
@@ -223,7 +226,7 @@ export class AirQualitySensorAccessory {
   }
 
   handleMqttMessage(topic: string, message: Buffer): void {
-    // this.log.debug(`Received new status payload: ${message.toString()}`);
+    this.log.debug(`Received new status payload: ${message.toString()}`);
 
     if (topic === MQTT_STATUS_TOPIC) {
       const messageString = message.toString();
@@ -241,7 +244,7 @@ export class AirQualitySensorAccessory {
     this.lastStatusPayload = data;
     this.lastStatusPayloadTimestamp = Date.now();
 
-    // this.log.debug(`Parsed new status payload to: ${JSON.stringify(data)}`);
+    this.log.debug(`Parsed new status payload to: ${JSON.stringify(data)}`);
 
     const airQuality = this.getAirQualityFromStatusPayload(data);
     const currentRelativeHumidity = data.hum || 0;
@@ -274,7 +277,7 @@ export class AirQualitySensorAccessory {
 
     const airQualityName = this.getAirQualityName(currentValue as number);
 
-    this.log.debug(`AirQuality is ${airQualityName} (${currentValue})`);
+    this.log.info(`AirQuality is ${airQualityName} (${currentValue})`);
 
     return Promise.resolve(currentValue);
   }
@@ -284,7 +287,7 @@ export class AirQualitySensorAccessory {
       this.platform.Characteristic.StatusActive,
     ).value;
 
-    this.log.debug(`StatusActive is ${currentValue ? 'ACTIVE' : 'INACTIVE'} (${currentValue})`);
+    this.log.info(`StatusActive is ${currentValue ? 'ACTIVE' : 'INACTIVE'} (${currentValue})`);
 
     return currentValue;
   }

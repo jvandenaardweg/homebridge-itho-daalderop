@@ -62,6 +62,13 @@
             "required": false
           }
         }
+      },
+      "verboseLogging": {
+        "title": "Verbose Logging",
+        "type": "boolean",
+        "required": false,
+        "default": false,
+        "description": "If enabled, the plugin will log all debug messages. If everything works as expected, there's no need to enable this."
       }
     }
   },
@@ -74,6 +81,9 @@
         {
           "key": "name",
           "type": "name"
+        },
+        {
+          "key": "verboseLogging"
         }
       ]
     },

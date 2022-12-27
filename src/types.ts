@@ -58,6 +58,9 @@ export type IthoStatusPayload = {
   [K in keyof IthoStatusSanitizedPayload]: number | string;
 };
 
+export type IthoGetSpeedResponse = number; // example: 45
+export type IthoSetSpeedResponse = number; // example: 45
+
 export type IthoStatePayload = string; // example: "45"
 
 export enum VirtualRemoteOptions {

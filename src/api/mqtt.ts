@@ -6,12 +6,14 @@ interface MqttApiOptions {
   port: number;
   username?: string;
   password?: string;
+  verboseLogging?: boolean;
   logger: Logger;
 }
 
 export class MqttApi {
   private readonly mqttApiClient: mqtt.Client;
-  private readonly log: Logger;
+  private readonly logger: Logger;
+  private readonly verboseLogging: boolean;
 
   constructor(options: MqttApiOptions) {
     this.mqttApiClient = mqtt.connect({
@@ -25,7 +27,16 @@ export class MqttApi {
     this.mqttApiClient.on('connect', this.handleMqttConnect.bind(this));
     this.mqttApiClient.on('error', this.handleMqttError.bind(this));
 
-    this.log = options.logger;
+    this.logger = options.logger;
+
+    this.verboseLogging = options.verboseLogging || false;
+  }
+
+  protected log(...args: unknown[]): void {
+    if (!this.logger) return;
+    if (!this.verboseLogging) return;
+
+    return this.logger.debug('[MQTT API] ->', ...args);
   }
 
   subscribe(topic: string | string[]): mqtt.Client {
@@ -41,10 +52,10 @@ export class MqttApi {
   }
 
   handleMqttConnect(packet: mqtt.IConnackPacket) {
-    this.log.debug(`MQTT connect: ${JSON.stringify(packet)}`);
+    this.log(`MQTT connect: ${JSON.stringify(packet)}`);
   }
 
   handleMqttError(error: Error) {
-    this.log.debug(`MQTT error: ${JSON.stringify(error)}`);
+    this.log(`MQTT error: ${JSON.stringify(error)}`);
   }
 }

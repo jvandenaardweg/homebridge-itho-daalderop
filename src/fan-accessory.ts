@@ -46,6 +46,7 @@ export class FanAccessory {
         username: this.config.api.username,
         password: this.config.api.password,
         logger: this.platform.log,
+        verboseLogging: this.config.verboseLogging,
       });
 
       this.mqttApiClient.subscribe([MQTT_STATE_TOPIC, MQTT_STATUS_TOPIC]);
@@ -59,24 +60,23 @@ export class FanAccessory {
       username: this.config.api.username,
       password: this.config.api.password,
       logger: this.platform.log,
+      verboseLogging: this.config.verboseLogging,
     });
 
     // Only start polling if we're using the HTTP API
     if (this.config.api.protocol === 'http') {
       this.httpApiClient.polling.getSpeed.start();
+      this.httpApiClient.polling.getStatus.start();
 
-      this.log.debug(`Starting polling for speed...`);
+      this.httpApiClient.polling.getSpeed.on(
+        'response.getSpeed',
+        this.handleSpeedResponse.bind(this),
+      );
 
-      // TODO: make this work, currently it's not working because on(response) is giving the same responses for both methods
-      // this.httpApiClient.polling.getStatus.start();
-
-      this.httpApiClient.polling.getSpeed.on('response', response => {
-        this.handleSpeedResponse(response as number); // TODO: fix type
-      });
-
-      // this.httpApiClient.polling.getStatus.on('response', response => {
-      //   console.log('Status response', response);
-      // });
+      this.httpApiClient.polling.getStatus.on(
+        'response.getStatus',
+        this.handleStatusResponse.bind(this),
+      );
     }
 
     const informationService = this.accessory.getService(
@@ -158,6 +158,7 @@ export class FanAccessory {
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       debug: (...parameters: any[]) => {
+        if (!this.config.verboseLogging) return;
         this.platform.log.debug(loggerPrefix, ...parameters);
       },
     };
