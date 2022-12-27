@@ -18,17 +18,19 @@ This Homebridge plugin exposes your [Itho Daalderop](https://www.ithodaalderop.n
 ## Features
 
 - Control your mechanical ventilation unit from within the Home App
-- Exposes an Air Quality Sensor with CO2, Humidity and Temperature measurements
 - Use your mechanical ventilation unit in your Home Automations
-- Supports both MQTT and HTTP API. The HTTP API is enabled by default.
-
-etc...
-
-README is being worked on, please be patient. Addon is published to NPM for testing purposes as of now.
+- Exposes an Air Quality Sensor with CO2, Humidity and Temperature measurements
+- Supports both MQTT and HTTP API. The HTTP API is enabled by default
 
 ## Requirements
 
 It is required to have installed and configured the [WiFi Add-on module](https://github.com/arjenhiemstra/ithowifi) for your fan unit. More info about this module and for a complete list on what mechanical ventilation models models are supported, please take a look at [Arjan Hiemstra's GitHub repository](https://github.com/arjenhiemstra/ithowifi) or this forum thread on Tweakers.net (Dutch): [Itho Daalderop WiFi Add-on module](https://gathering.tweakers.net/forum/list_messages/1892019).
+
+### MQTT
+
+Using the MQTT API is optional, the plugin will use the HTTP API by default. Using MQTT is recommended as it is more reliable and faster than the HTTP API.
+If you want to use the MQTT API, you will need to install and configure a MQTT broker on your local network. I recommend using [Mosquitto](https://mosquitto.org/).
+The IP address of the MQTT broker is required to configure the plugin in Homebridge and in the WiFi Add-on module.
 
 ## Getting started
 
