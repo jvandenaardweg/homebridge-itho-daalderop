@@ -37,6 +37,12 @@ The IP address of the MQTT broker is required to configure the plugin in Homebri
 
 ## Getting started
 
+```
+npm install -g homebridge-itho-daalderop
+```
+
+Or use the Homebridge UI to install the plugin.
+
 1. Go to your Homebridge UI and click on "Plugins"
 2. Search for `Itho Daalderop` and select the plugin `Homebridge Itho Daalderop` from `@jvandenaardweg` and click "Install"
 3. On the plugin Settings, configure the API settings, choose between using MQTT or the HTTP API and fill in the required settings. Click Save.
