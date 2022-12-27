@@ -37,11 +37,13 @@ The IP address of the MQTT broker is required to configure the plugin in Homebri
 
 ## Getting started
 
+This plugin requires Node 14 or higher
+
 ```
 npm install -g homebridge-itho-daalderop
 ```
 
-Or use the Homebridge UI to install the plugin.
+Or use the Homebridge UI to install the plugin:
 
 1. Go to your Homebridge UI and click on "Plugins"
 2. Search for `Itho Daalderop` and select the plugin `Homebridge Itho Daalderop` from `@jvandenaardweg` and click "Install"
@@ -49,3 +51,9 @@ Or use the Homebridge UI to install the plugin.
 4. Click the little QR code icon for the plugin and enable the bridge. Save it and restart Homebridge.
 5. After restarting Homebridge, click the QR code icon again and scan the QR code with your iPhone using the Home App. This will add the plugin bridge to your Home App.
 6. Your Mechanical Ventilation unit should now be available to configure in the Home App
+
+## Troubleshooting
+
+If you have any issues with the plugin, please enable the `verboseLogging` configuration option in the Homebridge plugin and check the Homebridge logs for any errors and debug messages.
+
+Feel free to [open an issue on GitHub](https://github.com/jvandenaardweg/homebridge-itho-daalderop/issues) if you have any questions or problems.
