@@ -29,7 +29,11 @@ export class AirQualitySensorAccessory {
   ) {
     this.log.debug(`Initializing platform accessory`);
 
-    this.mqttClient = mqtt.connect(`http://${this.config.api.ip}:${this.config.api.port}`, {
+    this.mqttClient = mqtt.connect({
+      host: this.config.api.ip,
+      port: this.config.api.port,
+      username: this.config.api.username,
+      password: this.config.api.password,
       reconnectPeriod: 10000, // 10 seconds
     });
 
@@ -50,36 +54,11 @@ export class AirQualitySensorAccessory {
     //   });
     // });
 
-    this.mqttClient.on('connect', packet => {
-      this.log.info(`MQTT connect: ${JSON.stringify(packet)}`);
-    });
+    this.mqttClient.subscribe(MQTT_STATUS_TOPIC);
 
-    this.mqttClient.on('error', err => {
-      this.log.error(`MQTT error: ${JSON.stringify(err)}`);
-    });
-
-    const statusSubscription = this.mqttClient.subscribe(MQTT_STATUS_TOPIC);
-
-    // Update the characteristic values when we receive a new message from mqtt
-    statusSubscription.on('message', (_, message) => {
-      // this.log.debug(`Received new status payload: ${message.toString()}`);
-
-      const data = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
-
-      this.lastStatusPayload = data;
-
-      // this.log.debug(`Parsed new status payload to: ${JSON.stringify(data)}`);
-
-      const airQuality = this.getAirQualityFromStatusPayload(data);
-      const currentRelativeHumidity = data.hum || 0;
-      const currentTemperature = data.temp || 0;
-      const carbonDioxideLevel = data['CO2level (ppm)'] || 0;
-
-      this.setAirQuality(airQuality);
-      this.setCurrentRelativeHumidity(currentRelativeHumidity);
-      this.setCurrentTemperature(currentTemperature);
-      this.setCarbonDioxideLevel(carbonDioxideLevel);
-    });
+    this.mqttClient.on('connect', this.handleMqttConnect.bind(this));
+    this.mqttClient.on('error', this.handleMqttError.bind(this));
+    this.mqttClient.on('message', this.handleMqttMessage.bind(this));
 
     const informationService = this.accessory.getService(
       this.platform.Service.AccessoryInformation,
@@ -111,7 +90,7 @@ export class AirQualitySensorAccessory {
       this.platform.Characteristic.AirQuality.GOOD,
     );
 
-    this.service.setCharacteristic(this.platform.Characteristic.StatusActive, true); // 0-100
+    this.service.setCharacteristic(this.platform.Characteristic.StatusActive, true);
 
     // Set the service name, this is what is displayed as the default name on the Home app
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.displayName);
@@ -125,10 +104,27 @@ export class AirQualitySensorAccessory {
       .onGet(this.handleGetStatusActive.bind(this));
   }
 
-  getAirQualityName(value: number): string | undefined {
-    return Object.keys(this.platform.Characteristic.AirQuality).find(
-      key => this.platform.Characteristic.AirQuality[key] === value,
-    );
+  get log() {
+    const loggerPrefix = `[Air Quality Sensor: ${this.accessory.displayName}] -> `;
+
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      info: (...parameters: any[]) => {
+        this.platform.log.info(loggerPrefix, ...parameters);
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      warn: (...parameters: any[]) => {
+        this.platform.log.warn(loggerPrefix, ...parameters);
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      error: (...parameters: any[]) => {
+        this.platform.log.error(loggerPrefix, ...parameters);
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      debug: (...parameters: any[]) => {
+        this.platform.log.debug(loggerPrefix, ...parameters);
+      },
+    };
   }
 
   setAirQuality(value: number): void {
@@ -205,6 +201,12 @@ export class AirQualitySensorAccessory {
     this.service.updateCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, value);
   }
 
+  getAirQualityName(value: number): string | undefined {
+    return Object.keys(this.platform.Characteristic.AirQuality).find(
+      key => this.platform.Characteristic.AirQuality[key] === value,
+    );
+  }
+
   /**
    * Some reference: https://www.breeze-technologies.de/blog/calculating-an-actionable-indoor-air-quality-index/
    *
@@ -228,27 +230,32 @@ export class AirQualitySensorAccessory {
     return this.platform.Characteristic.AirQuality.POOR;
   }
 
-  get log() {
-    const loggerPrefix = `[Air Quality Sensor: ${this.accessory.displayName}] -> `;
+  handleMqttConnect(packet: mqtt.IConnackPacket) {
+    this.log.info(`MQTT connect: ${JSON.stringify(packet)}`);
+  }
 
-    return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      info: (...parameters: any[]) => {
-        this.platform.log.info(loggerPrefix, ...parameters);
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      warn: (...parameters: any[]) => {
-        this.platform.log.warn(loggerPrefix, ...parameters);
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      error: (...parameters: any[]) => {
-        this.platform.log.error(loggerPrefix, ...parameters);
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      debug: (...parameters: any[]) => {
-        this.platform.log.debug(loggerPrefix, ...parameters);
-      },
-    };
+  handleMqttError(error: Error) {
+    this.log.error(`MQTT error: ${JSON.stringify(error)}`);
+  }
+
+  handleMqttMessage(_: string, message: Buffer): void {
+    // this.log.debug(`Received new status payload: ${message.toString()}`);
+
+    const data = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
+
+    this.lastStatusPayload = data;
+
+    // this.log.debug(`Parsed new status payload to: ${JSON.stringify(data)}`);
+
+    const airQuality = this.getAirQualityFromStatusPayload(data);
+    const currentRelativeHumidity = data.hum || 0;
+    const currentTemperature = data.temp || 0;
+    const carbonDioxideLevel = data['CO2level (ppm)'] || 0;
+
+    this.setAirQuality(airQuality);
+    this.setCurrentRelativeHumidity(currentRelativeHumidity);
+    this.setCurrentTemperature(currentTemperature);
+    this.setCarbonDioxideLevel(carbonDioxideLevel);
   }
 
   /**

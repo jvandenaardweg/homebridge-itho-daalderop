@@ -25,6 +25,16 @@ export const configSchema = z.object({
       required_error: 'Port is required for setup',
       invalid_type_error: "'port' must be a number",
     }),
+    username: z
+      .string({
+        invalid_type_error: "'username' must be a string",
+      })
+      .optional(),
+    password: z
+      .string({
+        invalid_type_error: "'password' must be a string",
+      })
+      .optional(),
   }),
 });
 
