@@ -1,7 +1,5 @@
-export function sanitizeMQTTMessage<T>(message: Buffer): T {
-  const messageString = message.toString();
-
-  const data = JSON.parse(messageString);
+export function sanitizeStatusPayload<T>(message: string): T {
+  const data = JSON.parse(message);
 
   // Replace "not available" with null
   const sanitizedData = Object.entries(data).map(([key, value]) => {

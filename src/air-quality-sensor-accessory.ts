@@ -1,12 +1,13 @@
 import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homebridge';
-import mqtt from 'mqtt';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
 import { DEFAULT_AIR_QUALITY_SENSOR_NAME, MANUFACTURER, MQTT_STATUS_TOPIC } from './settings';
-import { sanitizeMQTTMessage } from './utils/mqtt';
+import { sanitizeStatusPayload } from './utils/api';
 import { isNil } from './utils';
 import { ConfigSchema } from './config.schema';
+import { HttpApi } from './api/http';
+import { MqttApi } from './api/mqtt';
 
 // function getRndInteger(min: number, max: number): number {
 //   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -19,7 +20,8 @@ import { ConfigSchema } from './config.schema';
  */
 export class AirQualitySensorAccessory {
   private service: Service;
-  private mqttClient: mqtt.Client;
+  private mqttApiClient: MqttApi | null = null;
+  private httpApiClient: HttpApi;
   private lastStatusPayload: Nullable<IthoStatusSanitizedPayload> = null;
   private lastStatusPayloadTimestamp: Nullable<number> = null;
 
@@ -28,44 +30,41 @@ export class AirQualitySensorAccessory {
     private readonly accessory: PlatformAccessory<IthoDaalderopAccessoryContext>,
     private readonly config: ConfigSchema,
   ) {
-    const mqttClientId = `${this.accessory.UUID}-${this.accessory.displayName
-      .toLowerCase()
-      .split(' ')
-      .join('-')}`;
+    this.log.debug(`Initializing platform accessory`);
+    this.log.debug(`Using API: ${JSON.stringify(this.config.api)}`);
 
-    this.log.debug(`Initializing platform accessory: ${mqttClientId}`);
+    if (this.config.api.protocol === 'mqtt') {
+      this.mqttApiClient = new MqttApi({
+        ip: this.config.api.ip,
+        port: this.config.api.port,
+        username: this.config.api.username,
+        password: this.config.api.password,
+        logger: this.platform.log,
+      });
 
-    this.mqttClient = mqtt.connect({
-      host: this.config.api.ip,
-      port: this.config.api.port,
+      this.mqttApiClient.subscribe(MQTT_STATUS_TOPIC);
+
+      this.mqttApiClient.on('message', this.handleMqttMessage.bind(this));
+    }
+
+    // Always setup the HTTP API client, because it's the default and always available on the Wifi module
+    this.httpApiClient = new HttpApi({
+      ip: this.config.api.ip,
       username: this.config.api.username,
       password: this.config.api.password,
-      clientId: mqttClientId,
-      reconnectPeriod: 10000, // 10 seconds
+      logger: this.platform.log,
     });
 
-    // For debugging purposes
-    // this.mqttClient.on('connect', () => {
-    //   this.mqttClient.subscribe(MQTT_STATUS_TOPIC, err => {
-    //     if (!err) {
-    //       setInterval(() => {
-    //         const payload = JSON.stringify({
-    //           temp: getRndInteger(15, 25),
-    //           hum: getRndInteger(40, 80),
-    //           'CO2level (ppm)': getRndInteger(100, 5000),
-    //         });
+    // Only start polling if we're using the HTTP API
+    if (this.config.api.protocol === 'http') {
+      this.httpApiClient.polling.getStatus.start();
 
-    //         this.mqttClient.publish(MQTT_STATUS_TOPIC, payload);
-    //       }, 5000);
-    //     }
-    //   });
-    // });
+      this.log.debug(`Starting polling for status...`);
 
-    this.mqttClient.subscribe(MQTT_STATUS_TOPIC);
-
-    this.mqttClient.on('connect', this.handleMqttConnect.bind(this));
-    this.mqttClient.on('error', this.handleMqttError.bind(this));
-    this.mqttClient.on('message', this.handleMqttMessage.bind(this));
+      this.httpApiClient.polling.getStatus.on('response', response => {
+        this.handleStatusResponse(response as IthoStatusSanitizedPayload); // TODO: fix type
+      });
+    }
 
     const informationService = this.accessory.getService(
       this.platform.Service.AccessoryInformation,
@@ -237,19 +236,21 @@ export class AirQualitySensorAccessory {
     return this.platform.Characteristic.AirQuality.POOR;
   }
 
-  handleMqttConnect(packet: mqtt.IConnackPacket) {
-    this.log.info(`MQTT connect: ${JSON.stringify(packet)}`);
-  }
+  handleMqttMessage(topic: string, message: Buffer): void {
+    const messageString = message.toString();
 
-  handleMqttError(error: Error) {
-    this.log.error(`MQTT error: ${JSON.stringify(error)}`);
-  }
-
-  handleMqttMessage(_: string, message: Buffer): void {
     // this.log.debug(`Received new status payload: ${message.toString()}`);
+    if (topic === MQTT_STATUS_TOPIC) {
+      const sanitizedStatusPayload =
+        sanitizeStatusPayload<IthoStatusSanitizedPayload>(messageString);
 
-    const data = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
+      this.handleStatusResponse(sanitizedStatusPayload);
 
+      return;
+    }
+  }
+
+  handleStatusResponse(data: IthoStatusSanitizedPayload) {
     this.lastStatusPayload = data;
     this.lastStatusPayloadTimestamp = Date.now();
 

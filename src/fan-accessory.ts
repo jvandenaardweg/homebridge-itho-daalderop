@@ -1,12 +1,13 @@
 import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homebridge';
-import mqtt from 'mqtt';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
 import { DEFAULT_FAN_NAME, MANUFACTURER, MQTT_STATE_TOPIC, MQTT_STATUS_TOPIC } from './settings';
-import { sanitizeMQTTMessage } from './utils/mqtt';
+import { sanitizeStatusPayload } from './utils/api';
 import { ConfigSchema } from './config.schema';
 import { isNil } from './utils';
+import { HttpApi } from './api/http';
+import { MqttApi } from './api/mqtt';
 
 // https://developers.homebridge.io/#/characteristic/RotationSpeed
 const MAX_ROTATION_SPEED = 100;
@@ -19,7 +20,8 @@ const MAX_ROTATION_SPEED = 100;
 export class FanAccessory {
   private service: Service;
   private informationService: Service | undefined;
-  private mqttClient: mqtt.Client;
+  private mqttApiClient: MqttApi | null = null;
+  private httpApiClient: HttpApi;
   private lastStatusPayload: Nullable<IthoStatusSanitizedPayload> = null;
   private lastStatusPayloadTimestamp: Nullable<number> = null;
   /** A number between 0 and 254 */
@@ -31,38 +33,48 @@ export class FanAccessory {
     private readonly accessory: PlatformAccessory<IthoDaalderopAccessoryContext>,
     private readonly config: ConfigSchema,
   ) {
-    const mqttClientId = `${this.accessory.UUID}-${this.accessory.displayName
-      .toLowerCase()
-      .split(' ')
-      .join('-')}`;
+    this.log.debug(`Initializing platform accessory`);
+    this.log.debug(`Using API: ${JSON.stringify(this.config.api)}`);
 
-    this.log.debug(`Initializing platform accessory: ${mqttClientId}`);
+    if (this.config.api.protocol === 'mqtt') {
+      this.mqttApiClient = new MqttApi({
+        ip: this.config.api.ip,
+        port: this.config.api.port,
+        username: this.config.api.username,
+        password: this.config.api.password,
+        logger: this.platform.log,
+      });
 
-    this.mqttClient = mqtt.connect({
-      host: this.config.api.ip,
-      port: this.config.api.port,
+      this.mqttApiClient.subscribe([MQTT_STATE_TOPIC, MQTT_STATUS_TOPIC]);
+
+      this.mqttApiClient.on('message', this.handleMqttMessage.bind(this));
+    }
+
+    // Always setup the HTTP API client, because it's the default and always available on the Wifi module
+    this.httpApiClient = new HttpApi({
+      ip: this.config.api.ip,
       username: this.config.api.username,
       password: this.config.api.password,
-      reconnectPeriod: 10000, // 10 seconds
-      clientId: mqttClientId,
+      logger: this.platform.log,
     });
 
-    // Mock until we connect to the real mqtt server
-    // this.mqttClient.on('connect', () => {
-    //   this.mqttClient.subscribe(MQTT_STATE_TOPIC, err => {
-    //     if (!err) {
-    //       setInterval(() => {
-    //         this.mqttClient.publish(MQTT_STATE_TOPIC, Math.floor(Math.random() * 101).toString());
-    //       }, 5000);
-    //     }
-    //   });
-    // });
+    // Only start polling if we're using the HTTP API
+    if (this.config.api.protocol === 'http') {
+      this.httpApiClient.polling.getSpeed.start();
 
-    this.mqttClient.subscribe([MQTT_STATE_TOPIC, MQTT_STATUS_TOPIC]);
+      this.log.debug(`Starting polling for speed...`);
 
-    this.mqttClient.on('connect', this.handleMqttConnect.bind(this));
-    this.mqttClient.on('error', this.handleMqttError.bind(this));
-    this.mqttClient.on('message', this.handleMqttMessage.bind(this));
+      // TODO: make this work, currently it's not working because on(response) is giving the same responses for both methods
+      // this.httpApiClient.polling.getStatus.start();
+
+      this.httpApiClient.polling.getSpeed.on('response', response => {
+        this.handleSpeedResponse(response as number); // TODO: fix type
+      });
+
+      // this.httpApiClient.polling.getStatus.on('response', response => {
+      //   console.log('Status response', response);
+      // });
+    }
 
     const informationService = this.accessory.getService(
       this.platform.Service.AccessoryInformation,
@@ -248,22 +260,14 @@ export class FanAccessory {
       : this.platform.Characteristic.Active.INACTIVE;
   }
 
-  handleMqttConnect(packet: mqtt.IConnackPacket) {
-    this.log.info(`MQTT connect: ${JSON.stringify(packet)}`);
-  }
-
-  handleMqttError(error: Error) {
-    this.log.error(`MQTT error: ${JSON.stringify(error)}`);
-  }
-
   handleMqttMessage(topic: string, message: Buffer): void {
     const messageString = message.toString();
 
     if (topic === MQTT_STATUS_TOPIC) {
-      const statusPayload = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
+      const sanitizedStatusPayload =
+        sanitizeStatusPayload<IthoStatusSanitizedPayload>(messageString);
 
-      this.lastStatusPayload = statusPayload;
-      this.lastStatusPayloadTimestamp = Date.now();
+      this.handleStatusResponse(sanitizedStatusPayload);
 
       return;
     }
@@ -273,11 +277,20 @@ export class FanAccessory {
 
       const rotationSpeedNumber = Number(messageString);
 
-      this.lastStatePayload = rotationSpeedNumber;
-      this.lastStatePayloadTimestamp = Date.now();
+      this.handleSpeedResponse(rotationSpeedNumber);
 
       return;
     }
+  }
+
+  handleStatusResponse(statusPayload: IthoStatusSanitizedPayload) {
+    this.lastStatusPayload = statusPayload;
+    this.lastStatusPayloadTimestamp = Date.now();
+  }
+
+  handleSpeedResponse(speed: number) {
+    this.lastStatePayload = speed;
+    this.lastStatePayloadTimestamp = Date.now();
   }
 
   /**
@@ -305,16 +318,20 @@ export class FanAccessory {
       );
     }
 
-    // https://github.com/arjenhiemstra/ithowifi/wiki/MQTT-integration#cve-unit
-    const speedPayload = JSON.stringify({
-      // ...(this.isInAutoMode ? { command: VirtualRemo teOptions.MEDIUM } : undefined), // if the fan is in auto mode, we need to switch it out of that mode first
-      // A range between 0-254
-      speed: `${valueToSet}`,
-    });
+    if (this.mqttApiClient) {
+      // https://github.com/arjenhiemstra/ithowifi/wiki/MQTT-integration#cve-unit
+      const speedPayload = JSON.stringify({
+        // ...(this.isInAutoMode ? { command: VirtualRemo teOptions.MEDIUM } : undefined), // if the fan is in auto mode, we need to switch it out of that mode first
+        // A range between 0-254
+        speed: `${valueToSet}`,
+      });
 
-    // Publish to MQTT server to update the rotation speed
-    this.mqttClient.publish('itho/cmd', speedPayload);
-    this.log.debug('mqttClient.publish', 'itho/cmd', speedPayload);
+      // Publish to MQTT server to update the rotation speed
+      this.mqttApiClient.publish('itho/cmd', speedPayload);
+      this.log.debug('mqttClient.publish', 'itho/cmd', speedPayload);
+    } else {
+      this.httpApiClient.setSpeed(valueToSet);
+    }
 
     // The user adjusted the rotation speed manually, so we need to set the TargetFanState to "manual"
     // if (this.targetFanState !== this.platform.Characteristic.TargetFanState.MANUAL) {
@@ -348,14 +365,17 @@ export class FanAccessory {
     // If value to set is 1 (ACTIVE), then we need to set the fan as active
     const activate = value === this.platform.Characteristic.Active.ACTIVE;
 
-    // Publish to MQTT server to update the rotation speed
     // A rotation speed of 0 will turn the fan off
     // A rotation speed of 20 will turn the fan on
     const activeStateValue = activate ? 20 : 0;
     const activeMqttValue = activeStateValue.toString();
 
-    this.mqttClient.publish(MQTT_STATE_TOPIC, activeMqttValue);
-    this.log.debug('mqttClient.publish', MQTT_STATE_TOPIC, activeMqttValue);
+    if (this.mqttApiClient) {
+      this.mqttApiClient.publish(MQTT_STATE_TOPIC, activeMqttValue);
+      this.log.debug('mqttClient.publish', MQTT_STATE_TOPIC, activeMqttValue);
+    } else {
+      this.httpApiClient.setSpeed(activeStateValue);
+    }
 
     this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
   }
@@ -410,8 +430,14 @@ export class FanAccessory {
     return currentValue;
   }
 
-  handleGetRotationSpeed(): Nullable<CharacteristicValue> {
-    const rotationSpeedNumber = this.lastStatePayload;
+  async handleGetRotationSpeed(): Promise<Nullable<CharacteristicValue>> {
+    let rotationSpeedNumber: number;
+
+    if (this.mqttApiClient) {
+      rotationSpeedNumber = this.lastStatePayload || 0;
+    } else {
+      rotationSpeedNumber = await this.httpApiClient.getSpeed();
+    }
 
     const rotationSpeed = Math.round(Number(rotationSpeedNumber) / 2.54);
 
