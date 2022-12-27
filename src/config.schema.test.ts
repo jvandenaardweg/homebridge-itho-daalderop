@@ -1,6 +1,6 @@
 import configSchemaJson from '../config.schema.json';
 import { configSchema, ConfigSchema } from './config.schema';
-import { PLATFORM_NAME } from './settings';
+import { DEFAULT_BRIDGE_NAME, PLATFORM_NAME } from './settings';
 
 // Sanity check, as we don't import config.schema.json in our code, we have no type-safety over the config.schema.json values and our types
 // These tests will fail if we change names or requirements in config.schema.json that are not reflected in our types
@@ -15,13 +15,13 @@ describe('config.schema.json', () => {
     expect(properties.name).toHaveProperty('required');
     expect(properties.name.required).toBe(true);
     expect(properties.name.type).toBe('string');
-    expect(properties.name.default).toBe('Itho Daalderop');
+    expect(properties.name.default).toBe(DEFAULT_BRIDGE_NAME);
   });
 
   it('should succeed the validation with valid config values', () => {
     const configSchemaValues: ConfigSchema = {
       platform: PLATFORM_NAME,
-      name: 'Itho Daalderop',
+      name: DEFAULT_BRIDGE_NAME,
       api: {
         ip: '192.168.0.10',
         port: 1883,
@@ -46,5 +46,109 @@ describe('config.schema.json', () => {
     };
 
     expect(schemaValidation).toThrowError('A bridge name is required');
+  });
+
+  it('should error when api is missing', () => {
+    const invalidConfigSchema = {
+      platform: PLATFORM_NAME,
+      name: DEFAULT_BRIDGE_NAME,
+    };
+
+    const schemaValidation = () => {
+      configSchema.parse(invalidConfigSchema);
+    };
+
+    expect(schemaValidation).toThrowError('Required');
+  });
+
+  it('should error when api.protocol is missing', () => {
+    const invalidConfigSchema = {
+      platform: PLATFORM_NAME,
+      name: DEFAULT_BRIDGE_NAME,
+      api: {
+        ip: '192.168.0.10',
+        port: 1883,
+        // protocol: 'mqtt',
+      },
+    };
+
+    const schemaValidation = () => {
+      configSchema.parse(invalidConfigSchema);
+    };
+
+    expect(schemaValidation).toThrowError('Required');
+  });
+  it('should error when api.ip is missing', () => {
+    const invalidConfigSchema = {
+      platform: PLATFORM_NAME,
+      name: DEFAULT_BRIDGE_NAME,
+      api: {
+        // ip: '192.168.0.10',
+        port: 1883,
+        protocol: 'mqtt',
+      },
+    };
+
+    const schemaValidation = () => {
+      configSchema.parse(invalidConfigSchema);
+    };
+
+    expect(schemaValidation).toThrowError('IP address is required for setup');
+  });
+
+  it('should error when api.port is missing', () => {
+    const invalidConfigSchema = {
+      platform: PLATFORM_NAME,
+      name: DEFAULT_BRIDGE_NAME,
+      api: {
+        ip: '192.168.0.10',
+        // port: 1883,
+        protocol: 'mqtt',
+      },
+    };
+
+    const schemaValidation = () => {
+      configSchema.parse(invalidConfigSchema);
+    };
+
+    expect(schemaValidation).toThrowError('Port is required for setup');
+  });
+
+  it('should error when api.protocol is not "mqtt" or "http"', () => {
+    const invalidConfigSchema = {
+      platform: PLATFORM_NAME,
+      name: DEFAULT_BRIDGE_NAME,
+      api: {
+        ip: '192.168.0.10',
+        port: 1883,
+        protocol: 'something-else',
+      },
+    };
+
+    const schemaValidation = () => {
+      configSchema.parse(invalidConfigSchema);
+    };
+
+    expect(schemaValidation).toThrowError(
+      `Invalid enum value. Expected 'mqtt' | 'http', received 'something-else'`,
+    );
+  });
+
+  it('should error when api.ip is not a ipv4 address', () => {
+    const invalidConfigSchema = {
+      platform: PLATFORM_NAME,
+      name: DEFAULT_BRIDGE_NAME,
+      api: {
+        ip: 'some.invalid.ip.address',
+        port: 1883,
+        protocol: 'mqtt',
+      },
+    };
+
+    const schemaValidation = () => {
+      configSchema.parse(invalidConfigSchema);
+    };
+
+    expect(schemaValidation).toThrowError(`'some.invalid.ip.address' is not a valid IPv4 address`);
   });
 });

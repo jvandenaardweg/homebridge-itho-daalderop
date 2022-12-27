@@ -9,7 +9,7 @@ export const PLATFORM_NAME = 'HomebridgeIthoDaalderop';
  * This must match the name of your plugin as defined the package.json
  */
 export const PLUGIN_NAME = 'homebridge-itho-daalderop';
-
+export const DEFAULT_BRIDGE_NAME = 'Itho Daalderop';
 export const MANUFACTURER = 'Itho Daalderop';
 
 export const DEFAULT_FAN_NAME = 'Mechanical Ventilation';

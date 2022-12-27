@@ -21,13 +21,13 @@
         "description": "",
         "properties": {
           "protocol": {
-            "title": "Which API?",
+            "title": "API Protocol",
             "type": "string",
             "required": true,
             "default": "mqtt",
             "oneOf": [
               {
-                "title": "Http",
+                "title": "HTTP",
                 "enum": ["http"]
               },
               {
@@ -40,7 +40,6 @@
             "type": "string",
             "title": "IP Address",
             "placeholder": "192.168.0.10",
-
             "format": "ipv4",
             "required": true
           },
@@ -49,6 +48,18 @@
             "title": "Port",
             "placeholder": "1883 (mqtt) or 80 (http)",
             "required": true
+          },
+          "username": {
+            "type": "string",
+            "title": "Username",
+            "placeholder": "Optional",
+            "required": false
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "placeholder": "Optional",
+            "required": false
           }
         }
       }
@@ -69,7 +80,7 @@
     {
       "type": "fieldset",
       "title": "API Settings",
-      "description": "In order to use MQTT you must have set up a MQTT broker on your network. The Itho Wifi module must be configured to use the same MQTT broker.",
+      "description": "Select which API protocol you want to use for this plugin. The HTTP API requires no additional setup. In order to use MQTT you must have set up a MQTT broker on your network. The Itho Wifi module must be configured to use the same MQTT broker.",
       "expandable": false,
       "orderable": false,
       "items": [
@@ -89,10 +100,22 @@
                 },
                 {
                   "key": "api.port"
+                }
+              ]
+            },
+            {
+              "type": "flex",
+              "flex-flow": "row wrap",
+              "items": [
+                {
+                  "key": "api.username"
+                },
+                {
+                  "key": "api.password"
                 },
                 {
                   "key": "",
-                  "description": "This is the IP address and port of your MQTT broker. The Itho Wifi module uses this same MQTT broker IP address and port."
+                  "description": "The Itho WiFi module allows setting a username and password for using the API. If you have set this, enter the username and password here."
                 }
               ]
             }
