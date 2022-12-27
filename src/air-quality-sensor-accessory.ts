@@ -9,10 +9,6 @@ import { ConfigSchema } from './config.schema';
 import { HttpApi } from './api/http';
 import { MqttApi } from './api/mqtt';
 
-// function getRndInteger(min: number, max: number): number {
-//   return Math.floor(Math.random() * (max - min + 1)) + min;
-// }
-
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers

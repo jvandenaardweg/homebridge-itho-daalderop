@@ -6,6 +6,11 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     setupFiles: ['./vitest.setup.ts'],
+    coverage: {
+      provider: 'istanbul',
+      all: true,
+      exclude: ['**/vitest.setup.ts', '**/mocks/**', 'src/index.ts'],
+    },
   },
   resolve: {
     alias: [

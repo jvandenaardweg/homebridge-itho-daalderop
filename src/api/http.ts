@@ -140,42 +140,35 @@ export class HttpApi {
    */
   protected stopPolling(method: string): void {
     if (!this.isPolling[method]) {
-      //   this.log(`Polling for "${method}" is not started or already stopped.`);
+      this.log.debug(`Polling for "${method}" is not started or already stopped.`);
       return;
     }
 
     this.isPolling[method] = false;
 
-    // this.log(`Stopping polling for "${method}".`);
+    this.log.debug(`Stopping polling for "${method}".`);
   }
 
   protected async startPolling(method: string, apiMethod: () => Promise<unknown>): Promise<void> {
-    // const stopOnError = !!this.pollingOptions?.stopOnError;
-
     this.isPolling[method] = true;
 
     while (this.isPolling[method]) {
       try {
         const response = await apiMethod();
 
-        // this.log(
-        //   `Received response while polling "${method}". Emitting "response": ${JSON.stringify(
-        //     response,
-        //   )}`,
-        // );
+        this.log.debug(
+          `Received response while polling "${method}". Emitting "response": ${JSON.stringify(
+            response,
+          )}`,
+        );
 
         this.eventEmitter.emit('response', response);
       } catch (error) {
-        // this.log(`Received error while polling "${method}": ${JSON.stringify(error)}`);
-
-        // If the user wants to stop polling on error, we stop polling
-        // if (stopOnError) {
-        //   this.stopPolling(method);
-        // }
+        this.log.debug(`Received error while polling "${method}": ${JSON.stringify(error)}`);
 
         this.eventEmitter.emit('error', error);
       } finally {
-        // this.log(`Waiting for next polling interval for "${method}"...`);
+        this.log.debug(`Waiting for next polling interval for "${method}"...`);
         await new Promise(resolve => setTimeout(resolve, DEFAULT_POLLING_INTERVAL));
       }
     }
