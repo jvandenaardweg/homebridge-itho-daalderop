@@ -21,19 +21,26 @@ export class AirQualitySensorAccessory {
   private service: Service;
   private mqttClient: mqtt.Client;
   private lastStatusPayload: Nullable<IthoStatusSanitizedPayload> = null;
+  private lastStatusPayloadTimestamp: Nullable<number> = null;
 
   constructor(
     private readonly platform: HomebridgeIthoDaalderop,
     private readonly accessory: PlatformAccessory<IthoDaalderopAccessoryContext>,
     private readonly config: ConfigSchema,
   ) {
-    this.log.debug(`Initializing platform accessory`);
+    const mqttClientId = `${this.accessory.UUID}-${this.accessory.displayName
+      .toLowerCase()
+      .split(' ')
+      .join('-')}`;
+
+    this.log.debug(`Initializing platform accessory: ${mqttClientId}`);
 
     this.mqttClient = mqtt.connect({
       host: this.config.api.ip,
       port: this.config.api.port,
       username: this.config.api.username,
       password: this.config.api.password,
+      clientId: mqttClientId,
       reconnectPeriod: 10000, // 10 seconds
     });
 
@@ -244,6 +251,7 @@ export class AirQualitySensorAccessory {
     const data = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
 
     this.lastStatusPayload = data;
+    this.lastStatusPayloadTimestamp = Date.now();
 
     // this.log.debug(`Parsed new status payload to: ${JSON.stringify(data)}`);
 

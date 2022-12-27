@@ -21,15 +21,22 @@ export class FanAccessory {
   private informationService: Service | undefined;
   private mqttClient: mqtt.Client;
   private lastStatusPayload: Nullable<IthoStatusSanitizedPayload> = null;
+  private lastStatusPayloadTimestamp: Nullable<number> = null;
   /** A number between 0 and 254 */
   private lastStatePayload: Nullable<number> = null;
+  private lastStatePayloadTimestamp: Nullable<number> = null;
 
   constructor(
     private readonly platform: HomebridgeIthoDaalderop,
     private readonly accessory: PlatformAccessory<IthoDaalderopAccessoryContext>,
     private readonly config: ConfigSchema,
   ) {
-    this.log.debug(`Initializing platform accessory`);
+    const mqttClientId = `${this.accessory.UUID}-${this.accessory.displayName
+      .toLowerCase()
+      .split(' ')
+      .join('-')}`;
+
+    this.log.debug(`Initializing platform accessory: ${mqttClientId}`);
 
     this.mqttClient = mqtt.connect({
       host: this.config.api.ip,
@@ -37,6 +44,7 @@ export class FanAccessory {
       username: this.config.api.username,
       password: this.config.api.password,
       reconnectPeriod: 10000, // 10 seconds
+      clientId: mqttClientId,
     });
 
     // Mock until we connect to the real mqtt server
@@ -255,6 +263,7 @@ export class FanAccessory {
       const statusPayload = sanitizeMQTTMessage<IthoStatusSanitizedPayload>(message);
 
       this.lastStatusPayload = statusPayload;
+      this.lastStatusPayloadTimestamp = Date.now();
 
       return;
     }
@@ -265,6 +274,7 @@ export class FanAccessory {
       const rotationSpeedNumber = Number(messageString);
 
       this.lastStatePayload = rotationSpeedNumber;
+      this.lastStatePayloadTimestamp = Date.now();
 
       return;
     }
