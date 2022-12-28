@@ -3,6 +3,7 @@ import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homeb
 import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
 import {
+  ACTIVE_SPEED_THRESHOLD,
   DEFAULT_FAN_NAME,
   MANUFACTURER,
   MAX_ROTATION_SPEED,
@@ -328,7 +329,7 @@ export class FanAccessory {
       return;
     }
 
-    if (rotationSpeed < 10) {
+    if (rotationSpeed < ACTIVE_SPEED_THRESHOLD) {
       if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.IDLE) {
         this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
         return;
@@ -418,7 +419,7 @@ export class FanAccessory {
 
     // A rotation speed of 0 will turn the fan off
     // A rotation speed of 20 will turn the fan on
-    const speedValue = activate ? 20 : 0;
+    const speedValue = activate ? ACTIVE_SPEED_THRESHOLD : 0;
 
     if (this.mqttApiClient) {
       this.mqttApiClient.setSpeed(speedValue);

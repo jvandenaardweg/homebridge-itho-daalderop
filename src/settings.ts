@@ -37,3 +37,6 @@ export const MQTT_CMD_TOPIC = 'itho/cmd';
 
 // https://developers.homebridge.io/#/characteristic/RotationSpeed
 export const MAX_ROTATION_SPEED = 100;
+
+/** Any value above this value is considered "active" */
+export const ACTIVE_SPEED_THRESHOLD = 20;
