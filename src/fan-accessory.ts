@@ -136,9 +136,9 @@ export class FanAccessory {
     // TODO: enable when we've found a way, seems to be a huge hassle:
     // https://github.com/arjenhiemstra/ithowifi/wiki/Controlling-the-speed-of-a-fan
 
-    // this.service
-    //   .getCharacteristic(this.platform.Characteristic.CurrentFanState)
-    //   .onGet(this.handleGetCurrentFanState.bind(this));
+    this.service
+      .getCharacteristic(this.platform.Characteristic.CurrentFanState)
+      .onGet(this.handleGetCurrentFanState.bind(this));
 
     // this.service
     //   .getCharacteristic(this.platform.Characteristic.TargetFanState)
@@ -296,11 +296,61 @@ export class FanAccessory {
   handleStatusResponse(statusPayload: IthoStatusSanitizedPayload) {
     this.lastStatusPayload = statusPayload;
     this.lastStatusPayloadTimestamp = Date.now();
+
+    const currentSpeedStatus = statusPayload['Speed status'] || 0;
+
+    this.setCurrentFanState(currentSpeedStatus);
   }
 
   handleSpeedResponse(speed: number) {
     this.lastStatePayload = speed;
     this.lastStatePayloadTimestamp = Date.now();
+  }
+
+  setCurrentFanState(rotationSpeed: number): void {
+    const currentFanStateValue = this.service.getCharacteristic(
+      this.platform.Characteristic.CurrentFanState,
+    ).value;
+
+    const currentFanStateName = this.getCurrentFanStateName((currentFanStateValue || 0) as number);
+
+    if (rotationSpeed === 0) {
+      if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.INACTIVE) {
+        this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
+        return;
+      }
+
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.CurrentFanState,
+        this.platform.Characteristic.CurrentFanState.INACTIVE,
+      );
+
+      return;
+    }
+
+    if (rotationSpeed < 10) {
+      if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.IDLE) {
+        this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
+        return;
+      }
+
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.CurrentFanState,
+        this.platform.Characteristic.CurrentFanState.IDLE,
+      );
+
+      return;
+    }
+
+    if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.BLOWING_AIR) {
+      this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
+      return;
+    }
+
+    this.service.updateCharacteristic(
+      this.platform.Characteristic.CurrentFanState,
+      this.platform.Characteristic.CurrentFanState.BLOWING_AIR,
+    );
   }
 
   /**
@@ -311,16 +361,16 @@ export class FanAccessory {
    * Do not return anything from this method. Otherwise we'll get this error:
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
    */
-  handleSetRotationSpeed(value: CharacteristicValue): void {
+  handleSetRotationSpeed(speedValue: CharacteristicValue): void {
     // A range between 0-254
-    const valueToSet = Math.round(Number(value) * 2.54);
+    const speedValueToSet = Math.round(Number(speedValue) * 2.54);
 
-    if (isNaN(valueToSet)) {
-      this.log.error(`RotationSpeed: Value is not a number: ${value}`);
+    if (isNaN(speedValueToSet)) {
+      this.log.error(`RotationSpeed: Value is not a number: ${speedValue}`);
       return;
     }
 
-    this.log.info(`Setting RotationSpeed to ${value}/${MAX_ROTATION_SPEED}`);
+    this.log.info(`Setting RotationSpeed to ${speedValue}/${MAX_ROTATION_SPEED}`);
 
     if (this.isInAutoMode) {
       this.log.debug(
@@ -329,10 +379,12 @@ export class FanAccessory {
     }
 
     if (this.mqttApiClient) {
-      this.mqttApiClient.setSpeed(valueToSet);
+      this.mqttApiClient.setSpeed(speedValueToSet);
     } else {
-      this.httpApiClient.setSpeed(valueToSet);
+      this.httpApiClient.setSpeed(speedValueToSet);
     }
+
+    this.setCurrentFanState(speedValueToSet);
 
     // The user adjusted the rotation speed manually, so we need to set the TargetFanState to "manual"
     // if (this.targetFanState !== this.platform.Characteristic.TargetFanState.MANUAL) {
@@ -375,6 +427,8 @@ export class FanAccessory {
     } else {
       this.httpApiClient.setSpeed(speedValue);
     }
+
+    this.setCurrentFanState(speedValue);
 
     this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
   }
@@ -445,17 +499,17 @@ export class FanAccessory {
     return rotationSpeed;
   }
 
-  // handleGetCurrentFanState(): Nullable<CharacteristicValue> {
-  //   const currentValue = this.service.getCharacteristic(
-  //     this.platform.Characteristic.CurrentFanState,
-  //   ).value;
+  handleGetCurrentFanState(): Nullable<CharacteristicValue> {
+    const currentValue = this.service.getCharacteristic(
+      this.platform.Characteristic.CurrentFanState,
+    ).value;
 
-  //   const currentFanStateName = this.getCurrentFanStateName(currentValue as number);
+    const currentFanStateName = this.getCurrentFanStateName(currentValue as number);
 
-  //   this.log.debug(`CurrentFanState is ${currentFanStateName} (${currentValue})`);
+    this.log.debug(`CurrentFanState is ${currentFanStateName} (${currentValue})`);
 
-  //   return currentValue;
-  // }
+    return currentValue;
+  }
 
   // handleGetTargetFanState(): Nullable<CharacteristicValue> {
   //   // 0 = Manual
