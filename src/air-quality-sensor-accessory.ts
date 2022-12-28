@@ -8,6 +8,8 @@ import { isNil } from './utils';
 import { ConfigSchema } from './config.schema';
 import { HttpApi } from './api/http';
 import { MqttApi } from './api/mqtt';
+import { serialNumberFromUUID } from './utils/serial';
+import { version } from '../package.json';
 
 /**
  * Platform Accessory
@@ -73,14 +75,16 @@ export class AirQualitySensorAccessory {
       this.platform.Characteristic.Model,
       DEFAULT_AIR_QUALITY_SENSOR_NAME, // Value is unknown, we'll set something
     );
+
+    // It is required to have a unique serial number for each accessory
+    // We'll use the UUID of the accessory as the serial number
     informationService?.setCharacteristic(
       this.platform.Characteristic.SerialNumber,
-      'Unknown', // Value is unknown, we'll set something
+      serialNumberFromUUID(this.accessory.UUID),
     );
-    informationService?.setCharacteristic(
-      this.platform.Characteristic.FirmwareRevision,
-      '1.0', // Value is unknown, we'll set something
-    );
+
+    // We'll use the version of this plugin as the firmware revision
+    informationService?.setCharacteristic(this.platform.Characteristic.FirmwareRevision, version);
 
     this.service =
       this.accessory.getService(this.platform.Service.AirQualitySensor) ||
