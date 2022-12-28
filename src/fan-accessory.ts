@@ -134,9 +134,6 @@ export class FanAccessory {
       .onSet(this.handleSetRotationSpeed.bind(this))
       .onGet(this.handleGetRotationSpeed.bind(this));
 
-    // TODO: enable when we've found a way, seems to be a huge hassle:
-    // https://github.com/arjenhiemstra/ithowifi/wiki/Controlling-the-speed-of-a-fan
-
     this.service
       .getCharacteristic(this.platform.Characteristic.CurrentFanState)
       .onGet(this.handleGetCurrentFanState.bind(this));

@@ -48,32 +48,36 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
     // Dynamic Platform plugins should only register new accessories after this event was fired,
     // in order to ensure they were not added to homebridge already. This event can also be used
     // to start discovery of new accessories.
-    this.api.on(APIEvent.DID_FINISH_LAUNCHING, () => {
-      this.log.debug(loggerPrefix, 'Executed didFinishLaunching callback');
-
-      // Check if the config is valid. We do this here to prevent bugs later.
-      // It also helps the user in setting the config properly, if not used from within the UI, but manually adjusted in the config.json file.
-      if (!this.isValidConfigSchema(this.config)) {
-        this.log.error(
-          this.loggerPrefix,
-          `Please fix the issues in your config.json file for this plugin. Once fixed, restart Homebridge.`,
-        );
-        return;
-      }
-
-      this.addFanAccessory(DEFAULT_FAN_NAME, this.api.hap.uuid.generate(DEFAULT_FAN_NAME));
-
-      this.addAirQualitySensor(
-        DEFAULT_AIR_QUALITY_SENSOR_NAME,
-        this.api.hap.uuid.generate(DEFAULT_AIR_QUALITY_SENSOR_NAME),
-      );
-    });
+    this.api.on(APIEvent.DID_FINISH_LAUNCHING, this.handleOnDidFinishLaunching.bind(this));
 
     // On Homebridge shutdown, cleanup some things
     // Note: this is not called when our plugin is uninstalled
-    this.api.on(APIEvent.SHUTDOWN, () => {
-      // TODO: handle
-    });
+    this.api.on(APIEvent.SHUTDOWN, this.handleOnShutdown.bind(this));
+  }
+
+  handleOnDidFinishLaunching() {
+    this.log.debug(this.loggerPrefix, 'Executed didFinishLaunching callback');
+
+    // Check if the config is valid. We do this here to prevent bugs later.
+    // It also helps the user in setting the config properly, if not used from within the UI, but manually adjusted in the config.json file.
+    if (!this.isValidConfigSchema(this.config)) {
+      this.log.error(
+        this.loggerPrefix,
+        `Please fix the issues in your config.json file for this plugin. Once fixed, restart Homebridge.`,
+      );
+      return;
+    }
+
+    this.addFanAccessory(DEFAULT_FAN_NAME, this.api.hap.uuid.generate(DEFAULT_FAN_NAME));
+
+    this.addAirQualitySensor(
+      DEFAULT_AIR_QUALITY_SENSOR_NAME,
+      this.api.hap.uuid.generate(DEFAULT_AIR_QUALITY_SENSOR_NAME),
+    );
+  }
+
+  handleOnShutdown() {
+    this.log.debug(this.loggerPrefix, 'Executed shutdown callback');
   }
 
   /**
