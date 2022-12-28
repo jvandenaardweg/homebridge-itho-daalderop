@@ -9,7 +9,6 @@ import { ConfigSchema } from './config.schema';
 import { HttpApi } from './api/http';
 import { MqttApi } from './api/mqtt';
 import { serialNumberFromUUID } from './utils/serial';
-import { version } from '../package.json';
 
 /**
  * Platform Accessory
@@ -84,7 +83,10 @@ export class AirQualitySensorAccessory {
     );
 
     // We'll use the version of this plugin as the firmware revision
-    informationService?.setCharacteristic(this.platform.Characteristic.FirmwareRevision, version);
+    informationService?.setCharacteristic(
+      this.platform.Characteristic.FirmwareRevision,
+      process.env.npm_package_version || '1.0',
+    );
 
     this.service =
       this.accessory.getService(this.platform.Service.AirQualitySensor) ||
@@ -113,7 +115,7 @@ export class AirQualitySensorAccessory {
   }
 
   get log() {
-    const loggerPrefix = `[Air Quality Sensor: ${this.accessory.displayName}] -> `;
+    const loggerPrefix = `[${this.accessory.displayName}] -> `;
 
     return {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,3 +1,4 @@
+import { MQTT_CMD_TOPIC } from '@/settings';
 import { Logger } from 'homebridge';
 import mqtt from 'mqtt';
 
@@ -57,5 +58,16 @@ export class MqttApi {
 
   handleMqttError(error: Error) {
     this.log(`MQTT error: ${JSON.stringify(error)}`);
+  }
+
+  setSpeed(speed: number): void {
+    const speedPayload = JSON.stringify({
+      // A range between 0-254
+      speed: `${speed}`,
+    });
+
+    this.log(`Publish on ${MQTT_CMD_TOPIC}: ${speedPayload}`);
+
+    this.mqttApiClient.publish(MQTT_CMD_TOPIC, speedPayload);
   }
 }

@@ -15,7 +15,6 @@ import { isNil } from './utils/lang';
 import { HttpApi } from './api/http';
 import { MqttApi } from './api/mqtt';
 import { serialNumberFromUUID } from './utils/serial';
-import { version } from '../package.json';
 
 /**
  * Platform Accessory
@@ -108,7 +107,7 @@ export class FanAccessory {
     // We'll use the version of this plugin as the firmware revision
     this.informationService?.setCharacteristic(
       this.platform.Characteristic.FirmwareRevision,
-      version,
+      process.env.npm_package_version || '1.0',
     );
 
     this.service =
@@ -148,7 +147,7 @@ export class FanAccessory {
   }
 
   get log() {
-    const loggerPrefix = `[Fan: ${this.accessory.displayName}] -> `;
+    const loggerPrefix = `[${this.accessory.displayName}] -> `;
 
     return {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -330,16 +329,7 @@ export class FanAccessory {
     }
 
     if (this.mqttApiClient) {
-      // https://github.com/arjenhiemstra/ithowifi/wiki/MQTT-integration#cve-unit
-      // TODO: find out how to bypass the "auto" state, as it falls back to auto after a few seconds.
-      const speedPayload = JSON.stringify({
-        // A range between 0-254
-        speed: `${valueToSet}`,
-      });
-
-      // Publish to MQTT server to update the rotation speed
-      this.mqttApiClient.publish('itho/cmd', speedPayload);
-      this.log.debug('mqttClient.publish', 'itho/cmd', speedPayload);
+      this.mqttApiClient.setSpeed(valueToSet);
     } else {
       this.httpApiClient.setSpeed(valueToSet);
     }
@@ -378,14 +368,12 @@ export class FanAccessory {
 
     // A rotation speed of 0 will turn the fan off
     // A rotation speed of 20 will turn the fan on
-    const activeStateValue = activate ? 20 : 0;
-    const activeMqttValue = activeStateValue.toString();
+    const speedValue = activate ? 20 : 0;
 
     if (this.mqttApiClient) {
-      this.mqttApiClient.publish(MQTT_STATE_TOPIC, activeMqttValue);
-      this.log.debug('mqttClient.publish', MQTT_STATE_TOPIC, activeMqttValue);
+      this.mqttApiClient.setSpeed(speedValue);
     } else {
-      this.httpApiClient.setSpeed(activeStateValue);
+      this.httpApiClient.setSpeed(speedValue);
     }
 
     this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
