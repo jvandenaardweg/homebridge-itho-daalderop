@@ -11,7 +11,7 @@ import {
 } from './settings';
 import { sanitizeStatusPayload } from './utils/api';
 import { ConfigSchema } from './config.schema';
-import { isNil } from './utils';
+import { isNil } from './utils/lang';
 import { HttpApi } from './api/http';
 import { MqttApi } from './api/mqtt';
 import { serialNumberFromUUID } from './utils/serial';

@@ -4,7 +4,7 @@ import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
 import { DEFAULT_AIR_QUALITY_SENSOR_NAME, MANUFACTURER, MQTT_STATUS_TOPIC } from './settings';
 import { sanitizeStatusPayload } from './utils/api';
-import { isNil } from './utils';
+import { isNil } from './utils/lang';
 import { ConfigSchema } from './config.schema';
 import { HttpApi } from './api/http';
 import { MqttApi } from './api/mqtt';
