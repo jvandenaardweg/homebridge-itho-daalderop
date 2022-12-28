@@ -186,9 +186,71 @@ export class FanAccessory {
     );
   }
 
-  get targetFanState(): Nullable<CharacteristicValue> {
-    return this.service.getCharacteristic(this.platform.Characteristic.TargetFanState).value;
-  }
+  // get targetFanState(): Nullable<CharacteristicValue> {
+  //   return this.service.getCharacteristic(this.platform.Characteristic.TargetFanState).value;
+  // }
+
+  // setTargetFanState(value?: FanInfo) {
+  //   // MANUAL = 0
+  //   // AUTO = 1
+
+  //   const currentValue = this.service.getCharacteristic(
+  //     this.platform.Characteristic.TargetFanState,
+  //   ).value;
+
+  //   const currentTargetFanStateName = this.getTargetFanStateName(currentValue as number);
+
+  //   // Assume it's in auto mode if we don't have any fan info
+  //   if (!value) {
+  //     if (currentValue === this.platform.Characteristic.TargetFanState.AUTO) {
+  //       this.log.debug(
+  //         `TargetFanState: Already set to: ${currentValue} (${currentTargetFanStateName}). Ignoring.`,
+  //       );
+  //       return;
+  //     }
+
+  //     this.log.debug('No fan info, assuming auto mode');
+
+  //     this.service.updateCharacteristic(
+  //       this.platform.Characteristic.TargetFanState,
+  //       this.platform.Characteristic.TargetFanState.AUTO,
+  //     );
+
+  //     return;
+  //   }
+
+  //   if (value === 'auto' || value === 'medium' || value === '3') {
+  //     if (currentValue === this.platform.Characteristic.TargetFanState.AUTO) {
+  //       this.log.debug(
+  //         `TargetFanState: Already set to: ${currentValue} (${currentTargetFanStateName}). Ignoring.`,
+  //       );
+  //       return;
+  //     }
+
+  //     this.log.debug(`TargetFanState: Setting to: ${value} (was: ${currentValue})`);
+
+  //     this.service.updateCharacteristic(
+  //       this.platform.Characteristic.TargetFanState,
+  //       this.platform.Characteristic.TargetFanState.AUTO,
+  //     );
+
+  //     return;
+  //   }
+
+  //   if (currentValue === this.platform.Characteristic.TargetFanState.MANUAL) {
+  //     this.log.debug(
+  //       `TargetFanState: Already set to: ${currentValue} (${currentTargetFanStateName}). Ignoring.`,
+  //     );
+  //     return;
+  //   }
+
+  //   this.log.debug(`TargetFanState: Setting to: ${value} (was: ${currentValue})`);
+
+  //   this.service.updateCharacteristic(
+  //     this.platform.Characteristic.TargetFanState,
+  //     this.platform.Characteristic.TargetFanState.MANUAL,
+  //   );
+  // }
 
   setRotationSpeed(value: number): void {
     const currentValue = this.service.getCharacteristic(
@@ -201,7 +263,7 @@ export class FanAccessory {
     }
 
     if (currentValue === value) {
-      this.log.debug(`RotationSpeed: Already set to: ${value}`);
+      this.log.debug(`RotationSpeed: Already set to: ${value}. Ignoring.`);
       return;
     }
 
@@ -229,13 +291,59 @@ export class FanAccessory {
     }
 
     if (currentValue === value) {
-      this.log.debug(`Active: Already set to: ${value}`);
+      this.log.debug(`Active: Already set to: ${value}. Ignoring.`);
       return;
     }
 
     this.log.debug(`Active: Setting to: ${value} (was: ${currentValue})`);
 
     this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
+  }
+
+  setCurrentFanState(rotationSpeed: number): void {
+    const currentFanStateValue = this.service.getCharacteristic(
+      this.platform.Characteristic.CurrentFanState,
+    ).value;
+
+    const currentFanStateName = this.getCurrentFanStateName((currentFanStateValue || 0) as number);
+
+    if (rotationSpeed === 0) {
+      if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.INACTIVE) {
+        this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
+        return;
+      }
+
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.CurrentFanState,
+        this.platform.Characteristic.CurrentFanState.INACTIVE,
+      );
+
+      return;
+    }
+
+    if (rotationSpeed < ACTIVE_SPEED_THRESHOLD) {
+      if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.IDLE) {
+        this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
+        return;
+      }
+
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.CurrentFanState,
+        this.platform.Characteristic.CurrentFanState.IDLE,
+      );
+
+      return;
+    }
+
+    if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.BLOWING_AIR) {
+      this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
+      return;
+    }
+
+    this.service.updateCharacteristic(
+      this.platform.Characteristic.CurrentFanState,
+      this.platform.Characteristic.CurrentFanState.BLOWING_AIR,
+    );
   }
 
   getTargetFanStateName(value: number): string | undefined {
@@ -296,59 +404,15 @@ export class FanAccessory {
     this.lastStatusPayloadTimestamp = Date.now();
 
     const currentSpeedStatus = statusPayload['Speed status'] || 0;
+    // const currentFanInfo = statusPayload['FanInfo'];
 
     this.setCurrentFanState(currentSpeedStatus);
+    // this.setTargetFanState(currentFanInfo);
   }
 
   handleSpeedResponse(speed: number) {
     this.lastStatePayload = speed;
     this.lastStatePayloadTimestamp = Date.now();
-  }
-
-  setCurrentFanState(rotationSpeed: number): void {
-    const currentFanStateValue = this.service.getCharacteristic(
-      this.platform.Characteristic.CurrentFanState,
-    ).value;
-
-    const currentFanStateName = this.getCurrentFanStateName((currentFanStateValue || 0) as number);
-
-    if (rotationSpeed === 0) {
-      if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.INACTIVE) {
-        this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
-        return;
-      }
-
-      this.service.updateCharacteristic(
-        this.platform.Characteristic.CurrentFanState,
-        this.platform.Characteristic.CurrentFanState.INACTIVE,
-      );
-
-      return;
-    }
-
-    if (rotationSpeed < ACTIVE_SPEED_THRESHOLD) {
-      if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.IDLE) {
-        this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
-        return;
-      }
-
-      this.service.updateCharacteristic(
-        this.platform.Characteristic.CurrentFanState,
-        this.platform.Characteristic.CurrentFanState.IDLE,
-      );
-
-      return;
-    }
-
-    if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.BLOWING_AIR) {
-      this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
-      return;
-    }
-
-    this.service.updateCharacteristic(
-      this.platform.Characteristic.CurrentFanState,
-      this.platform.Characteristic.CurrentFanState.BLOWING_AIR,
-    );
   }
 
   /**
@@ -435,7 +499,9 @@ export class FanAccessory {
 
   //   this.log.debug(`Setting TargetFanState to ${targetFanStateName} (${value})`);
 
-  //   // TODO: save to mqtt
+  //   // TODO: save in api / mqtt
+  //   // TODO: to set manual, add +1 to speed value to setSpeed {"speed": currentSpeed + 1}?
+  //   // TODO: to set auto, send {"vremote": "medium", "command": "medium"}?
 
   //   this.service.updateCharacteristic(this.platform.Characteristic.TargetFanState, value);
   // }
