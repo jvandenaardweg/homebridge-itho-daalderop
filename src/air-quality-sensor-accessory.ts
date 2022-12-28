@@ -112,6 +112,10 @@ export class AirQualitySensorAccessory {
     this.service
       .getCharacteristic(this.platform.Characteristic.StatusActive)
       .onGet(this.handleGetStatusActive.bind(this));
+
+    this.service
+      .getCharacteristic(this.platform.Characteristic.Identify)
+      .onGet(this.handleGetIdentify.bind(this));
   }
 
   get log() {
@@ -296,5 +300,11 @@ export class AirQualitySensorAccessory {
     this.log.info(`StatusActive is ${currentValue ? 'ACTIVE' : 'INACTIVE'} (${currentValue})`);
 
     return currentValue;
+  }
+
+  handleGetIdentify(): Nullable<CharacteristicValue> {
+    this.log.warn('Identify feature not supported.');
+
+    return null;
   }
 }

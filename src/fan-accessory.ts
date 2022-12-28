@@ -138,6 +138,10 @@ export class FanAccessory {
       .getCharacteristic(this.platform.Characteristic.CurrentFanState)
       .onGet(this.handleGetCurrentFanState.bind(this));
 
+    this.service
+      .getCharacteristic(this.platform.Characteristic.Identify)
+      .onGet(this.handleGetIdentify.bind(this));
+
     // this.service
     //   .getCharacteristic(this.platform.Characteristic.TargetFanState)
     //   .onSet(this.handleSetTargetFanState.bind(this))
@@ -583,4 +587,10 @@ export class FanAccessory {
 
   //   return currentValue;
   // }
+
+  handleGetIdentify(): Nullable<CharacteristicValue> {
+    this.log.warn('Identify feature not supported.');
+
+    return null;
+  }
 }
