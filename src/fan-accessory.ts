@@ -384,8 +384,6 @@ export class FanAccessory {
       this.httpApiClient.setSpeed(speedValueToSet);
     }
 
-    this.setCurrentFanState(speedValueToSet);
-
     // The user adjusted the rotation speed manually, so we need to set the TargetFanState to "manual"
     // if (this.targetFanState !== this.platform.Characteristic.TargetFanState.MANUAL) {
     //   this.log.info(
@@ -427,8 +425,6 @@ export class FanAccessory {
     } else {
       this.httpApiClient.setSpeed(speedValue);
     }
-
-    this.setCurrentFanState(speedValue);
 
     this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
   }
