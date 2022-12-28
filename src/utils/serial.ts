@@ -1,3 +1,3 @@
-export function serialNumberFromUUID(uuid: string): number {
-  return parseInt(uuid.split('-')[0], 16);
+export function serialNumberFromUUID(uuid: string): string {
+  return uuid.split('-').join('').slice(0, 16);
 }
