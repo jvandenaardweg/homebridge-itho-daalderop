@@ -35,9 +35,9 @@ However, using MQTT is recommended as it is more reliable and faster than the HT
 If you want to use the MQTT API, you will need to install and configure a MQTT broker on your local network. I recommend using [Mosquitto](https://mosquitto.org/).
 The IP address of the MQTT broker is required to configure the plugin in Homebridge and in the WiFi Add-on module.
 
-## Getting started
+## Installation
 
-This plugin requires Node 14 or higher
+This plugin requires Node 14 or higher to be installed.
 
 ```
 npm install -g homebridge-itho-daalderop
@@ -47,10 +47,32 @@ Or use the Homebridge UI to install the plugin:
 
 1. Go to your Homebridge UI and click on "Plugins"
 2. Search for `Itho Daalderop` and select the plugin `Homebridge Itho Daalderop` from `@jvandenaardweg` and click "Install"
-3. On the plugin Settings, configure the API settings, choose between using MQTT or the HTTP API and fill in the required settings. Click Save.
+
+## Configuring the plugin
+
+I recommend using the Homebridge UI to configure the plugin settings, as it gives guidance on what settings are required.
+
+1. Go the the plugin settings in the Homebridge UI
+2. On the plugin page click on "Settings" for `Homebridge Itho Daalderop`
+3. Choose between using MQTT or the HTTP API and fill in the required settings. Click Save.
 4. Click the little QR code icon for the plugin and enable the bridge. Save it and restart Homebridge.
 5. After restarting Homebridge, click the QR code icon again and scan the QR code with your iPhone using the Home App. This will add the plugin bridge to your Home App.
 6. Your Mechanical Ventilation unit should now be available to configure in the Home App
+
+### Example config
+
+```json
+{
+  "platform": "HomebridgeIthoDaalderop",
+  "name": "Itho Daalderop",
+  "api": {
+    "protocol": "mqtt",
+    "ip": "192.168.1.21",
+    "port": 1883
+  },
+  "verboseLogging": false
+}
+```
 
 ## Troubleshooting
 
