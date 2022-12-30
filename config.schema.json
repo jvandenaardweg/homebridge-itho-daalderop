@@ -151,7 +151,7 @@
                 },
                 {
                   "key": "",
-                  "description": "The Itho WiFi module allows setting a username and password for using the API. If you have set this, enter the username and password here."
+                  "description": "The Itho WiFi module allows setting a username and password for using the HTTP API or MQTT. If you have set this, enter the username and password here."
                 }
               ]
             },
