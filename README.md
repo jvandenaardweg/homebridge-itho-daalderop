@@ -63,7 +63,7 @@ I recommend using the Homebridge UI to configure the plugin settings, as it give
 
 ### Example config
 
-Below is an example config for the CVE-S Optima Inside
+Below is an example config for the CVE-S Optima Inside with a built-in CO2 sensor and using the MQTT API.
 
 ```json
 {
