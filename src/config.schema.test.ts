@@ -195,4 +195,44 @@ describe('config.schema.json', () => {
 
     expect(schemaValidation).toThrowError(`'some.invalid.ip.address' is not a valid IPv4 address`);
   });
+
+  it('should error when verboseLogging is not a boolean', () => {
+    const invalidConfigSchema = {
+      platform: PLATFORM_NAME,
+      name: DEFAULT_BRIDGE_NAME,
+      api: {
+        ip: '192.168.0.10',
+        port: 1883,
+        protocol: 'mqtt',
+      },
+      verboseLogging: 'true',
+    };
+
+    const schemaValidation = () => {
+      configSchema.parse(invalidConfigSchema);
+    };
+
+    expect(schemaValidation).toThrowError("'verboseLogging' must be a boolean");
+  });
+
+  it('should error when device.co2Sensor is not a boolean', () => {
+    const invalidConfigSchema = {
+      platform: PLATFORM_NAME,
+      name: DEFAULT_BRIDGE_NAME,
+      api: {
+        ip: '192.168.0.10',
+        port: 1883,
+        protocol: 'mqtt',
+      },
+      device: {
+        co2Sensor: 'true',
+      },
+    };
+
+    const schemaValidation = () => {
+      configSchema.parse(invalidConfigSchema);
+    };
+
+    expect(schemaValidation).toThrowError("'co2Sensor' must be a boolean");
+  });
 });
