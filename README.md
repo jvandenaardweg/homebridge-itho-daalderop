@@ -82,7 +82,9 @@ I recommend using the Homebridge UI to configure the plugin settings, as it give
 
 ## About manual speed control
 
-The plugin allows full manual speed control from 0% to 100% and everything in between. However, your fan needs to be able to support such speed commands. It is [known](https://github.com/arjenhiemstra/ithowifi/wiki/CO2-sensors#itho-with-built-in-co2--sensor-cve-s-optima-inside) that speed commands send to CVE unit's with a built-in CO2 sensor (like the CVE-S Optima Inside) are overruled by the internal speed control of the fan. This means you can't have fine grained control over your fan speed, and are limited to "low", "medium" and "high" speed settings. This also applies to non-CVE devices like HRU-350, DemandFlow, QualityFlow or HRU Eco Fan.
+The plugin allows full manual speed control from 0% to 100% and everything in between. However, your fan needs to be able to support such speed commands. It is [known](https://github.com/arjenhiemstra/ithowifi/wiki/CO2-sensors#itho-with-built-in-co2--sensor-cve-s-optima-inside) that speed commands send to CVE unit's with a built-in CO2 sensor (like the CVE-S Optima Inside) are overruled by the internal speed control of the fan. This means you can't have fine grained control over your fan speed, and are limited to "low", "medium" and "high" speed settings.
+
+This also applies to non-CVE devices like HRU-350, DemandFlow, QualityFlow or HRU Eco Fan. These devices do not support manual speed control, we can only use the "low", "medium" and "high" speed settings.
 
 If you have such a device with a built-in CO2 sensor, please add the `device` configuration option to your config.json file and set the `co2Sensor` option to `true`. If you have a non-CVE device set the `nonCve` option to `true`. Or use the Homebridge UI to set these options. The plugin will then automatically map the speed in the Home App to the respective virtual remote commands, which will allow you to control the fan speed in 3 steps. The mapping is as follows:
 
