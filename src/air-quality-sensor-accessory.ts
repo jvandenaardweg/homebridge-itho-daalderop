@@ -2,7 +2,12 @@ import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homeb
 
 import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
-import { DEFAULT_AIR_QUALITY_SENSOR_NAME, MANUFACTURER, MQTT_STATUS_TOPIC } from './settings';
+import {
+  CO2_LEVEL_SENSOR_KEY,
+  DEFAULT_AIR_QUALITY_SENSOR_NAME,
+  MANUFACTURER,
+  MQTT_STATUS_TOPIC,
+} from './settings';
 import { sanitizeStatusPayload } from './utils/api';
 import { isNil } from './utils/lang';
 import { ConfigSchema } from './config.schema';
@@ -223,7 +228,7 @@ export class AirQualitySensorAccessory {
   }
 
   getAirQualityFromStatusPayload(data: IthoStatusSanitizedPayload): number {
-    const ppm = data['CO2level (ppm)'];
+    const ppm = data[CO2_LEVEL_SENSOR_KEY];
 
     if (isNil(ppm)) return this.platform.Characteristic.AirQuality.UNKNOWN;
 

@@ -1,4 +1,9 @@
-import { IthoGetSpeedResponse, IthoSetSpeedResponse, IthoStatusSanitizedPayload } from '@/types';
+import {
+  IthoGetSpeedResponse,
+  IthoSetSpeedResponse,
+  IthoStatusSanitizedPayload,
+  VirtualRemoteCommand,
+} from '@/types';
 import { sanitizeStatusPayload } from '@/utils/api';
 import EventEmitter from 'events';
 import { Logger } from 'homebridge';
@@ -81,6 +86,30 @@ export class HttpApi {
     // Response text will be "OK" when the request is successful
     // We'll just return the speed that was set
     return speed as T;
+  }
+
+  async setVirtualRemoteCommand<T extends VirtualRemoteCommand>(
+    virtualRemoteCommand: VirtualRemoteCommand,
+  ): Promise<T> {
+    // Make a copy of the URL so we don't modify the original
+    const requestUrl = new URL(this.url.toString());
+    requestUrl.searchParams.set('vremote', virtualRemoteCommand.toString());
+
+    this.log(`Setting vremote to ${virtualRemoteCommand} at ${requestUrl}`);
+
+    const response = await request(requestUrl, {
+      method: 'GET',
+    });
+
+    const text = await response.body.text();
+
+    if (text === 'NOK') {
+      throw new Error(`Failed to get the speed: ${text}`);
+    }
+
+    // Response text will be "OK" when the request is successful
+    // We'll just return the virtual remote command instead
+    return virtualRemoteCommand as T;
   }
 
   async getSpeed<T extends IthoGetSpeedResponse>(): Promise<T> {

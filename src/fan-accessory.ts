@@ -5,12 +5,17 @@ import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './typ
 import {
   ACTIVE_SPEED_THRESHOLD,
   DEFAULT_FAN_NAME,
+  FALLBACK_VIRTUAL_REMOTE_COMMAND,
   MANUFACTURER,
   MAX_ROTATION_SPEED,
   MQTT_STATE_TOPIC,
   MQTT_STATUS_TOPIC,
 } from './settings';
-import { sanitizeStatusPayload } from './utils/api';
+import {
+  getRotationSpeedForVirtualRemoteCommand,
+  getVirtualRemoteCommandForRotationSpeed,
+  sanitizeStatusPayload,
+} from './utils/api';
 import { ConfigSchema } from './config.schema';
 import { isNil } from './utils/lang';
 import { HttpApi } from './api/http';
@@ -131,6 +136,20 @@ export class FanAccessory {
 
     this.service
       .getCharacteristic(this.platform.Characteristic.RotationSpeed)
+      // If the device has a CO2 and or humidity sensor, we'll use 3 steps (low, medium high), otherwise 100 (0 - 100%)
+      .setProps(
+        !this.allowsManualSpeedControl
+          ? {
+              minValue: 0,
+              maxValue: 100,
+              minStep: 100 / 3, // TODO: find a better way to do this, 33% is not really "low", as "low" is 0% on the device
+            }
+          : {
+              minValue: 0,
+              maxValue: 100,
+              minStep: 1,
+            },
+      )
       .onSet(this.handleSetRotationSpeed.bind(this))
       .onGet(this.handleGetRotationSpeed.bind(this));
 
@@ -179,15 +198,13 @@ export class FanAccessory {
     );
   }
 
-  get isInAutoMode(): boolean {
-    return (
-      this.lastStatusPayload?.FanInfo === 'auto' ||
-      this.lastStatusPayload?.FanInfo === 'medium' ||
-      this.lastStatusPayload?.FanInfo === '3' ||
-      this.lastStatusPayload?.Selection === 'auto' ||
-      this.lastStatusPayload?.Selection === 'medium' ||
-      this.lastStatusPayload?.Selection === 3
-    );
+  get allowsManualSpeedControl(): boolean {
+    // The I2C to PWM protocol (manual speed control from 0 - 254) is overruled by the CO2 sensor. Virtual remote commands work as expected.
+    // So, if the box has an internal CO2 sensor, we can't control the fan speed manually on a 0-254 (0-100 in homekit) scale.
+    // We need to use the virtual remote commands.
+    // https://github.com/arjenhiemstra/ithowifi/wiki/CO2-sensors#itho-with-built-in-co2--sensor-cve-s-optima-inside
+    // https://gathering.tweakers.net/forum/list_message/73948328#73948328
+    return !this.config.device?.co2Sensor;
   }
 
   // get targetFanState(): Nullable<CharacteristicValue> {
@@ -380,6 +397,20 @@ export class FanAccessory {
       : this.platform.Characteristic.Active.INACTIVE;
   }
 
+  sendVirtualRemoteCommand(speedValue: number): void {
+    const virtualRemoteCommand = getVirtualRemoteCommandForRotationSpeed(speedValue);
+
+    this.log.warn(
+      `Your unit has a build in CO2 sensor, which prohibits the use of manual speed control. We'll map the speed "${speedValue}" to a virtual remote command "${virtualRemoteCommand}" instead.`,
+    );
+
+    if (this.mqttApiClient) {
+      this.mqttApiClient.setVirtualRemoteCommand(virtualRemoteCommand);
+    } else {
+      this.httpApiClient.setVirtualRemoteCommand(virtualRemoteCommand);
+    }
+  }
+
   handleMqttMessage(topic: string, message: Buffer): void {
     const messageString = message.toString();
 
@@ -427,9 +458,11 @@ export class FanAccessory {
    * Do not return anything from this method. Otherwise we'll get this error:
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
    */
-  handleSetRotationSpeed(speedValue: CharacteristicValue): void {
+  handleSetRotationSpeed(value: CharacteristicValue): void {
+    const speedValue = Number(value);
+
     // A range between 0-254
-    const speedValueToSet = Math.round(Number(speedValue) * 2.54);
+    const speedValueToSet = Math.round(speedValue * 2.54);
 
     if (isNaN(speedValueToSet)) {
       this.log.error(`RotationSpeed: Value is not a number: ${speedValue}`);
@@ -438,10 +471,10 @@ export class FanAccessory {
 
     this.log.info(`Setting RotationSpeed to ${speedValue}/${MAX_ROTATION_SPEED}`);
 
-    if (this.isInAutoMode) {
-      this.log.debug(
-        'Fan is in auto mode. Adjusting the rotation speed manually will probably not work. Switch the fan to another state first.',
-      );
+    if (!this.allowsManualSpeedControl) {
+      this.sendVirtualRemoteCommand(speedValue);
+
+      return;
     }
 
     if (this.mqttApiClient) {
@@ -449,22 +482,6 @@ export class FanAccessory {
     } else {
       this.httpApiClient.setSpeed(speedValueToSet);
     }
-
-    // The user adjusted the rotation speed manually, so we need to set the TargetFanState to "manual"
-    // if (this.targetFanState !== this.platform.Characteristic.TargetFanState.MANUAL) {
-    //   this.log.info(
-    //     'Setting TargetFanState to "manual" because the rotation speed is manually adjusted.',
-    //   );
-
-    //   this.service.updateCharacteristic(
-    //     this.platform.Characteristic.TargetFanState,
-    //     this.platform.Characteristic.TargetFanState.MANUAL,
-    //   );
-    // } else {
-    //   this.log.debug('TargetFanState already set to "manual", skipping.');
-    // }
-
-    // We will receive a message from the MQTT server with the new state
   }
 
   /**
@@ -486,13 +503,19 @@ export class FanAccessory {
     // A rotation speed of 20 will turn the fan on
     const speedValue = activate ? ACTIVE_SPEED_THRESHOLD : 0;
 
+    this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
+
+    if (!this.allowsManualSpeedControl) {
+      this.sendVirtualRemoteCommand(speedValue);
+
+      return;
+    }
+
     if (this.mqttApiClient) {
       this.mqttApiClient.setSpeed(speedValue);
     } else {
       this.httpApiClient.setSpeed(speedValue);
     }
-
-    this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
   }
 
   // async handleSetTargetFanState(value: CharacteristicValue): Promise<void> {
@@ -548,6 +571,15 @@ export class FanAccessory {
   }
 
   async handleGetRotationSpeed(): Promise<Nullable<CharacteristicValue>> {
+    if (!this.allowsManualSpeedControl) {
+      const state = this.lastStatusPayload?.FanInfo || FALLBACK_VIRTUAL_REMOTE_COMMAND;
+      const rotationSpeed = getRotationSpeedForVirtualRemoteCommand(state);
+
+      this.log.info(`RotationSpeed is ${rotationSpeed}/${MAX_ROTATION_SPEED} (${state})`);
+
+      return rotationSpeed;
+    }
+
     let rotationSpeedNumber: number;
 
     if (this.mqttApiClient) {

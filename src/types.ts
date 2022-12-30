@@ -2,10 +2,22 @@ export interface IthoDaalderopAccessoryContext {
   somethingExtra: string;
 }
 
+export const virtualRemoteCommands = [
+  'low',
+  'medium',
+  'high',
+  'timer1',
+  'timer2',
+  'timer3',
+  'join',
+  'leave',
+] as const;
+export type VirtualRemoteCommand = typeof virtualRemoteCommands[number];
+
 // TODO: are there more options?
 // TODO: is this different for other models?
 // https://github.com/arjenhiemstra/ithowifi/wiki/Controlling-the-speed-of-a-fan
-export type FanInfo = 'auto' | 'low' | 'medium' | 'high' | '1' | '2' | '3';
+export type FanInfo = 'auto' | 'low' | 'medium' | 'high';
 
 // Unknown what the values are, my box seems to show "7" when FanInfo is "auto", so i
 export type Selection = 'auto' | 'low' | 'medium' | 'high' | 1 | 2 | 3 | 4 | 5 | 6 | 7;

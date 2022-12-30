@@ -15,6 +15,26 @@
         "description": "You'll see this name when you add the bridge in your Home app and also in the logs within Homebridge.",
         "default": "Itho Daalderop"
       },
+      "verboseLogging": {
+        "title": "Verbose Logging",
+        "type": "boolean",
+        "required": false,
+        "default": false,
+        "description": "If enabled, the plugin will log all debug messages. If everything works as expected, there's no need to enable this."
+      },
+      "device": {
+        "type": "object",
+        "title": "Device properties",
+
+        "properties": {
+          "co2Sensor": {
+            "title": "Using build-in CO2 Sensor",
+            "type": "boolean",
+            "required": false,
+            "default": false
+          }
+        }
+      },
       "api": {
         "type": "object",
         "title": "MQTT Broker settings",
@@ -62,13 +82,6 @@
             "required": false
           }
         }
-      },
-      "verboseLogging": {
-        "title": "Verbose Logging",
-        "type": "boolean",
-        "required": false,
-        "default": false,
-        "description": "If enabled, the plugin will log all debug messages. If everything works as expected, there's no need to enable this."
       }
     }
   },
@@ -81,16 +94,29 @@
         {
           "key": "name",
           "type": "name"
-        },
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Device properties",
+      "expandable": false,
+      "orderable": false,
+      "items": [
         {
-          "key": "verboseLogging"
+          "items": [
+            {
+              "key": "device.co2Sensor",
+              "description": "Indicate wether your fan is using the build-in CO2 sensor. If so, the plugin will automatically switch to using virtual remote commands like low, medium or high instead of rotation speed 0 - 100 to set the fan speed. <a href='https://github.com/jvandenaardweg/homebridge-itho-daalderop#about-manual-speed-control'>More about this in the README</a>."
+            }
+          ]
         }
       ]
     },
     {
       "type": "fieldset",
       "title": "API Settings",
-      "description": "Select which API protocol you want to use for this plugin. The HTTP API requires no additional setup. In order to use MQTT you must have set up a MQTT broker on your network. The Itho Wifi module must be configured to use the same MQTT broker.",
+      "description": "Select which API protocol you want to use for this plugin. The HTTP API requires no additional setup. In order to use MQTT you must have set up a MQTT broker on your network. <a href='https://github.com/jvandenaardweg/homebridge-itho-daalderop#mqtt'>More about this in the README</a>.",
       "expandable": false,
       "orderable": false,
       "items": [
@@ -126,6 +152,15 @@
                 {
                   "key": "",
                   "description": "The Itho WiFi module allows setting a username and password for using the API. If you have set this, enter the username and password here."
+                }
+              ]
+            },
+            {
+              "type": "flex",
+              "flex-flow": "row wrap",
+              "items": [
+                {
+                  "key": "verboseLogging"
                 }
               ]
             }

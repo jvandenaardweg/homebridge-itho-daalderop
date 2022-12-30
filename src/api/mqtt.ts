@@ -1,4 +1,5 @@
 import { MQTT_CMD_TOPIC } from '@/settings';
+import { VirtualRemoteCommand } from '@/types';
 import { Logger } from 'homebridge';
 import mqtt from 'mqtt';
 
@@ -69,5 +70,15 @@ export class MqttApi {
     this.log(`Publish on ${MQTT_CMD_TOPIC}: ${speedPayload}`);
 
     this.mqttApiClient.publish(MQTT_CMD_TOPIC, speedPayload);
+  }
+
+  setVirtualRemoteCommand(virtualRemoteCommand: VirtualRemoteCommand): void {
+    const vremotePayload = JSON.stringify({
+      vremote: `${virtualRemoteCommand}`,
+    });
+
+    this.log(`Publish on ${MQTT_CMD_TOPIC}: ${vremotePayload}`);
+
+    this.mqttApiClient.publish(MQTT_CMD_TOPIC, vremotePayload);
   }
 }

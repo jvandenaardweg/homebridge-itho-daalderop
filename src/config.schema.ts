@@ -8,6 +8,15 @@ export const configSchema = z.object({
   name: z.string({
     required_error: 'A bridge name is required',
   }),
+  device: z
+    .object({
+      co2Sensor: z
+        .boolean({
+          invalid_type_error: "'co2Sensor' must be a boolean",
+        })
+        .optional(),
+    })
+    .optional(),
   api: z.object({
     protocol: z.enum(['mqtt', 'http']),
     ip: z
