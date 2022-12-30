@@ -42,5 +42,6 @@ export const MAX_ROTATION_SPEED = 100;
 export const ACTIVE_SPEED_THRESHOLD = 20;
 
 export const CO2_LEVEL_SENSOR_KEY = 'CO2level (ppm)';
+export const FAN_INFO_KEY = 'FanInfo';
 
 export const FALLBACK_VIRTUAL_REMOTE_COMMAND = 'medium';

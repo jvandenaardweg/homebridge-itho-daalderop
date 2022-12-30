@@ -5,14 +5,14 @@ import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './typ
 import {
   ACTIVE_SPEED_THRESHOLD,
   DEFAULT_FAN_NAME,
-  FALLBACK_VIRTUAL_REMOTE_COMMAND,
+  FAN_INFO_KEY,
   MANUFACTURER,
   MAX_ROTATION_SPEED,
   MQTT_STATE_TOPIC,
   MQTT_STATUS_TOPIC,
 } from './settings';
 import {
-  getRotationSpeedForVirtualRemoteCommand,
+  getRotationSpeedFromFanInfo,
   getVirtualRemoteCommandForRotationSpeed,
   sanitizeStatusPayload,
 } from './utils/api';
@@ -303,8 +303,8 @@ export class FanAccessory {
 
     if (
       (value === this.platform.Characteristic.Active.INACTIVE &&
-        this.lastStatusPayload?.FanInfo === 'auto') ||
-      this.lastStatusPayload?.FanInfo === 'medium'
+        this.lastStatusPayload?.[FAN_INFO_KEY] === 'auto') ||
+      this.lastStatusPayload?.[FAN_INFO_KEY] === 'medium'
     ) {
       this.log.warn(
         'Important, you are disabling the fan, but it is in auto/medium mode. So it will probably turn on again.',
@@ -572,10 +572,11 @@ export class FanAccessory {
 
   async handleGetRotationSpeed(): Promise<Nullable<CharacteristicValue>> {
     if (!this.allowsManualSpeedControl) {
-      const state = this.lastStatusPayload?.FanInfo || FALLBACK_VIRTUAL_REMOTE_COMMAND;
-      const rotationSpeed = getRotationSpeedForVirtualRemoteCommand(state);
+      const fanInfo = this.lastStatusPayload?.[FAN_INFO_KEY];
 
-      this.log.info(`RotationSpeed is ${rotationSpeed}/${MAX_ROTATION_SPEED} (${state})`);
+      const rotationSpeed = getRotationSpeedFromFanInfo(fanInfo);
+
+      this.log.info(`RotationSpeed is ${rotationSpeed}/${MAX_ROTATION_SPEED} (${fanInfo})`);
 
       return rotationSpeed;
     }

@@ -1,5 +1,6 @@
+import { FanInfo } from '@/types';
 import {
-  getRotationSpeedForVirtualRemoteCommand,
+  getRotationSpeedFromFanInfo,
   getVirtualRemoteCommandForRotationSpeed,
   sanitizeStatusPayload,
 } from './api';
@@ -45,19 +46,23 @@ describe('utils/api', () => {
 
   describe('getRotationSpeedForVirtualRemoteCommand()', () => {
     it('should return 33.333 when the virtual remote command is "low"', () => {
-      expect(getRotationSpeedForVirtualRemoteCommand('low')).toEqual(33.333333333333336);
+      expect(getRotationSpeedFromFanInfo('low')).toEqual(33.333333333333336);
     });
 
     it('should return 66.666 when the virtual remote command is "medium"', () => {
-      expect(getRotationSpeedForVirtualRemoteCommand('medium')).toEqual(66.66666666666667);
+      expect(getRotationSpeedFromFanInfo('medium')).toEqual(66.66666666666667);
     });
 
     it('should return 66.666 when the virtual remote command is "auto"', () => {
-      expect(getRotationSpeedForVirtualRemoteCommand('auto')).toEqual(66.66666666666667);
+      expect(getRotationSpeedFromFanInfo('auto')).toEqual(66.66666666666667);
+    });
+
+    it('should return 66.666 when the virtual remote command is not "low", "medium", "auto" or "high"', () => {
+      expect(getRotationSpeedFromFanInfo('unknown' as FanInfo)).toEqual(66.66666666666667);
     });
 
     it('should return 100 when the virtual remote command is "high"', () => {
-      expect(getRotationSpeedForVirtualRemoteCommand('high')).toEqual(100);
+      expect(getRotationSpeedFromFanInfo('high')).toEqual(100);
     });
   });
 });

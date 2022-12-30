@@ -1,4 +1,25 @@
 import { FALLBACK_VIRTUAL_REMOTE_COMMAND } from '@/settings';
+import { FanInfo } from '@/types';
+
+const supportedVirtualRemoteCommands = ['low', 'medium', 'high'] as const;
+type SupportedVirtualRemoteCommands = typeof supportedVirtualRemoteCommands[number];
+// type SupportedVirtualRemoteCommands = 'low' | 'medium' | 'high';
+type VirtualRemoteMapping = Record<SupportedVirtualRemoteCommands, [number, number]>;
+
+function getVirtualRemoteMapping(): VirtualRemoteMapping {
+  const min = 0;
+  const max = 100;
+  const oneThird = (max / 3) * 1;
+  const twoThirds = (max / 3) * 2;
+
+  const virtualRemoteMapping = {
+    low: [min, oneThird], // 0 - 33.333
+    medium: [oneThird, twoThirds], // 33.333 - 66.666
+    high: [twoThirds, max], // 66.666 - 100
+  } satisfies VirtualRemoteMapping;
+
+  return virtualRemoteMapping;
+}
 
 export function sanitizeStatusPayload<T>(message: string): T {
   const data = JSON.parse(message);
@@ -17,44 +38,43 @@ export function sanitizeStatusPayload<T>(message: string): T {
   return Object.fromEntries(sanitizedData) as T;
 }
 
+/**
+ * Get the virtual remote command for the given rotation speed
+ *
+ * Will default to the medium speed when no match is found
+ */
 export function getVirtualRemoteCommandForRotationSpeed(
   rotationSpeed: number,
-): 'low' | 'medium' | 'high' {
-  const min = 0;
-  const max = 100;
-  const oneThird = (max / 3) * 1;
-  const twoThirds = (max / 3) * 2;
-
-  const virtualRemoteMapping = {
-    low: [min, oneThird], // 0 - 33.333
-    medium: [oneThird, twoThirds], // 33.333 - 66.666
-    high: [twoThirds, max], // 66.666 - 100
-  } satisfies Record<'low' | 'medium' | 'high', [number, number]>;
+): SupportedVirtualRemoteCommands {
+  const virtualRemoteMapping = getVirtualRemoteMapping();
 
   const virtualRemoteCommand = Object.entries(virtualRemoteMapping).find(([, range]) => {
     const [min, max] = range;
 
     return rotationSpeed >= min && rotationSpeed <= max;
-  })?.[0] as 'low' | 'medium' | 'high';
+  })?.[0] as SupportedVirtualRemoteCommands;
 
   return virtualRemoteCommand || FALLBACK_VIRTUAL_REMOTE_COMMAND; // fallback to medium when no match is found
 }
 
-export function getRotationSpeedForVirtualRemoteCommand(
-  virtualRemoteCommand: 'low' | 'medium' | 'auto' | 'high',
-): number {
-  const min = 0;
-  const max = 100;
-  const oneThird = (max / 3) * 1;
-  const twoThirds = (max / 3) * 2;
+/**
+ * Map the FanInfo value to the rotation speed
+ *
+ * Will default to the medium speed when the fan is in auto mode
+ * or the FanInfo is not a supported virtual remote command (low, medium, high)
+ */
+export function getRotationSpeedFromFanInfo(fanInfo?: FanInfo): number {
+  const virtualRemoteMapping = getVirtualRemoteMapping();
 
-  const virtualRemoteMapping = {
-    low: [min, oneThird], // 0 - 33.333
-    medium: [oneThird, twoThirds], // 33.333 - 66.666
-    auto: [oneThird, twoThirds], // 33.333 - 66.666
-    high: [twoThirds, max], // 66.666 - 100
-  } satisfies Record<'low' | 'medium' | 'auto' | 'high', [number, number]>;
+  let virtualRemoteCommand = FALLBACK_VIRTUAL_REMOTE_COMMAND;
 
+  // If the FanInfo is low, medium or high, we'll use that as the virtual remote command
+  // Any other value will fallback to medium, as defined above
+  if (supportedVirtualRemoteCommands.includes(fanInfo as never)) {
+    virtualRemoteCommand = fanInfo as SupportedVirtualRemoteCommands;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_, maxSpeed] = virtualRemoteMapping[virtualRemoteCommand];
 
   return maxSpeed;
