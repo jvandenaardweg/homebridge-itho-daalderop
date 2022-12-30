@@ -64,6 +64,7 @@ I recommend using the Homebridge UI to configure the plugin settings, as it give
 ### Example config
 
 ```json
+// Example config for CVE-S Optima Inside
 {
   "platform": "HomebridgeIthoDaalderop",
   "name": "Itho Daalderop",
