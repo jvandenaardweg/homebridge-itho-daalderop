@@ -138,7 +138,7 @@ export class FanAccessory {
 
     this.service
       .getCharacteristic(this.platform.Characteristic.RotationSpeed)
-      // If the device has a CO2 and or humidity sensor, we'll use 3 steps (low, medium high), otherwise 100 (0 - 100%)
+      // If the device has a CO2 or the device is a non-CVE device, we'll use 3 steps (low, medium high), otherwise 100 (0 - 100%)
       .setProps(
         !this.allowsManualSpeedControl
           ? {
