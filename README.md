@@ -54,10 +54,12 @@ I recommend using the Homebridge UI to configure the plugin settings, as it give
 
 1. Go the the plugin settings in the Homebridge UI
 2. On the plugin page click on "Settings" for `Homebridge Itho Daalderop`
-3. Choose between using MQTT or the HTTP API and fill in the required settings. Click Save.
-4. Click the little QR code icon for the plugin and enable the bridge. Save it and restart Homebridge.
-5. After restarting Homebridge, click the QR code icon again and scan the QR code with your iPhone using the Home App. This will add the plugin bridge to your Home App.
-6. Your Mechanical Ventilation unit should now be available to configure in the Home App
+3. Let the plugin know if you have a build-in CO2 sensor in your fan unit
+4. And choose between using MQTT or the HTTP API and fill in the required settings
+5. Save the config
+6. Click the little QR code icon for the plugin and enable the bridge. Save it and restart Homebridge
+7. After restarting Homebridge, click the QR code icon again and scan the QR code with your iPhone using the Home App. This will add the plugin bridge to your Home App
+8. Your Mechanical Ventilation unit should now be available to configure in the Home App
 
 ### Example config
 
@@ -88,6 +90,8 @@ If you have such a device with a built-in CO2 sensor, please add the `device` co
 | 33% | low | active |
 | 67% | medium/auto | active |
 | 100% | high | active |
+
+You can also remove the CO2 sensor from the device itself. Just unplug it from the internal board. This will allow you to use the full manual speed control, but you don't receive any Carbon Dioxide reading in the Home App for the Air Quality Sensor. Make sure you have removed the `device` configuration option completely.
 
 ## Troubleshooting
 
