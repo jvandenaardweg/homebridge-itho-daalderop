@@ -14,6 +14,7 @@ import { ConfigSchema } from './config.schema';
 import { HttpApi } from './api/http';
 import { MqttApi } from './api/mqtt';
 import { serialNumberFromUUID } from './utils/serial';
+import { PLUGIN_VERSION } from './version';
 
 /**
  * Platform Accessory
@@ -90,7 +91,7 @@ export class AirQualitySensorAccessory {
     // We'll use the version of this plugin as the firmware revision
     informationService?.setCharacteristic(
       this.platform.Characteristic.FirmwareRevision,
-      process.env.npm_package_version || '1.0',
+      PLUGIN_VERSION || '1.0',
     );
 
     this.service =
