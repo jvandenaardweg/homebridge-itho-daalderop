@@ -1,6 +1,6 @@
 import { IthoDaalderopAccessoryContext } from '@/types';
 import { HomebridgeIthoDaalderop } from '@/platform';
-import { Accessory } from 'hap-nodejs';
+import { Accessory, Characteristic, Service } from 'hap-nodejs';
 import { PlatformAccessory } from 'homebridge';
 import { mockUUID, mockAccessoryContext, mockDisplayName } from './fan-accessory';
 import { loggerMock } from './logger';
@@ -58,15 +58,8 @@ export const platformMock = {
   log: loggerMock,
   api: {
     hap: {
-      Service: {
-        AccessoryInformation: 'AccessoryInformation',
-      },
-      Characteristic: {
-        Manufacturer: 'Manufacturer',
-        FirmwareRevision: 'FirmwareRevision',
-        Model: 'Model',
-        SerialNumber: 'SerialNumber',
-      },
+      Service,
+      Characteristic,
       HapStatusError: vi.fn(),
       HAPStatus: {
         SUCCESS: 'SUCCESS',
@@ -74,33 +67,8 @@ export const platformMock = {
       },
     },
   },
-  Service: {
-    AccessoryInformation: 'AccessoryInformation',
-    Outlet: 'Outlet',
-  },
-  Characteristic: {
-    Manufacturer: 'Manufacturer',
-    FirmwareRevision: 'FirmwareRevision',
-    Model: 'Model',
-    SerialNumber: 'SerialNumber',
-    On: 'On',
-    Name: 'Name',
-    OutletInUse: 'OutletInUse',
-    RotationSpeed: 'RotationSpeed',
-    Active: {
-      INACTIVE: 0,
-      ACTIVE: 1,
-    },
-    TargetFanState: {
-      MANUAL: 0,
-      AUTO: 1,
-    },
-    CurrentFanState: {
-      INACTIVE: 0,
-      IDLE: 1,
-      BLOWING_AIR: 2,
-    },
-  },
+  Service,
+  Characteristic,
 } as unknown as HomebridgeIthoDaalderop;
 
 export const accessoryMock = {

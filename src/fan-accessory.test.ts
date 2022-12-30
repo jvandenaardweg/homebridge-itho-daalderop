@@ -1,3 +1,4 @@
+import { Characteristic } from 'hap-nodejs';
 import { ConfigSchema } from './config.schema';
 import { FanAccessory } from './fan-accessory';
 import { accessoryMock, platformMock } from './mocks/platform';
@@ -95,8 +96,12 @@ describe('FanAccessory', () => {
     it('should return the correct name for the target fan state', () => {
       const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
 
-      expect(fanAccessory['getTargetFanStateName'](0)).toBe('MANUAL');
-      expect(fanAccessory['getTargetFanStateName'](1)).toBe('AUTO');
+      expect(fanAccessory['getTargetFanStateName'](Characteristic.TargetFanState.MANUAL)).toBe(
+        'MANUAL',
+      );
+      expect(fanAccessory['getTargetFanStateName'](Characteristic.TargetFanState.AUTO)).toBe(
+        'AUTO',
+      );
     });
   });
 
@@ -104,9 +109,15 @@ describe('FanAccessory', () => {
     it('should return the correct name for the current fan state', () => {
       const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
 
-      expect(fanAccessory['getCurrentFanStateName'](0)).toBe('INACTIVE');
-      expect(fanAccessory['getCurrentFanStateName'](1)).toBe('IDLE');
-      expect(fanAccessory['getCurrentFanStateName'](2)).toBe('BLOWING_AIR');
+      expect(fanAccessory['getCurrentFanStateName'](Characteristic.CurrentFanState.INACTIVE)).toBe(
+        'INACTIVE',
+      );
+      expect(fanAccessory['getCurrentFanStateName'](Characteristic.CurrentFanState.IDLE)).toBe(
+        'IDLE',
+      );
+      expect(
+        fanAccessory['getCurrentFanStateName'](Characteristic.CurrentFanState.BLOWING_AIR),
+      ).toBe('BLOWING_AIR');
     });
   });
 
@@ -114,8 +125,8 @@ describe('FanAccessory', () => {
     it('should return the correct name for the active state', () => {
       const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
 
-      expect(fanAccessory['getActiveName'](0)).toBe('INACTIVE');
-      expect(fanAccessory['getActiveName'](1)).toBe('ACTIVE');
+      expect(fanAccessory['getActiveName'](Characteristic.Active.INACTIVE)).toBe('INACTIVE');
+      expect(fanAccessory['getActiveName'](Characteristic.Active.ACTIVE)).toBe('ACTIVE');
     });
   });
 
@@ -123,12 +134,14 @@ describe('FanAccessory', () => {
     it('should return the correct active state for the given rotation speed', () => {
       const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
 
-      expect(fanAccessory['getActiveStateByRotationSpeed'](0)).toBe(0);
-      expect(fanAccessory['getActiveStateByRotationSpeed'](19)).toBe(0);
+      expect(fanAccessory['getActiveStateByRotationSpeed'](0)).toBe(Characteristic.Active.INACTIVE);
+      expect(fanAccessory['getActiveStateByRotationSpeed'](19)).toBe(
+        Characteristic.Active.INACTIVE,
+      );
 
       // 20 or 20+ should be active
-      expect(fanAccessory['getActiveStateByRotationSpeed'](20)).toBe(1);
-      expect(fanAccessory['getActiveStateByRotationSpeed'](21)).toBe(1);
+      expect(fanAccessory['getActiveStateByRotationSpeed'](20)).toBe(Characteristic.Active.ACTIVE);
+      expect(fanAccessory['getActiveStateByRotationSpeed'](21)).toBe(Characteristic.Active.ACTIVE);
     });
   });
 
@@ -176,7 +189,24 @@ describe('FanAccessory', () => {
     it('should set the correct active state', () => {
       const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
 
-      const mockActiveState = 1; // active
+      const mockActiveState = Characteristic.Active.ACTIVE;
+
+      const updateCharacteristicSpy = vi.fn();
+
+      fanAccessory['service'].updateCharacteristic = updateCharacteristicSpy;
+
+      fanAccessory['setActive'](mockActiveState);
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.Active,
+        mockActiveState,
+      );
+    });
+
+    it('should set the correct active state', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
+
+      const mockActiveState = Characteristic.Active.INACTIVE;
 
       const updateCharacteristicSpy = vi.fn();
 
@@ -193,7 +223,7 @@ describe('FanAccessory', () => {
     it('should not set the active state if the same value is already set', () => {
       const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
 
-      const mockActiveState = 1;
+      const mockActiveState = Characteristic.Active.ACTIVE;
 
       const updateCharacteristicSpy = vi.fn();
 
@@ -217,7 +247,7 @@ describe('FanAccessory', () => {
       const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
 
       const mockRotationSpeed = 0;
-      const expected = 0; // INACTIVE
+      const expected = Characteristic.CurrentFanState.INACTIVE;
 
       const updateCharacteristicSpy = vi.fn();
 
@@ -235,7 +265,7 @@ describe('FanAccessory', () => {
       const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
 
       const mockRotationSpeed = ACTIVE_SPEED_THRESHOLD - 1;
-      const expected = 1; // IDLE
+      const expected = Characteristic.CurrentFanState.IDLE;
 
       const updateCharacteristicSpy = vi.fn();
 
@@ -253,7 +283,7 @@ describe('FanAccessory', () => {
       const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
 
       const mockRotationSpeed = ACTIVE_SPEED_THRESHOLD + 1;
-      const expected = 2; // BLOWING_AIR
+      const expected = Characteristic.CurrentFanState.BLOWING_AIR;
 
       const updateCharacteristicSpy = vi.fn();
 
@@ -265,6 +295,71 @@ describe('FanAccessory', () => {
         platformMock.Characteristic.CurrentFanState,
         expected,
       );
+    });
+  });
+
+  describe('sendVirtualRemoteCommand()', () => {
+    it('should send the correct command to the virtual remote for speed value 20', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
+
+      const mockSpeedValue = 20;
+      const expected = 'low';
+
+      const setVirtualRemoteCommandSpy = vi.fn();
+
+      const mqttApiClient = fanAccessory['mqttApiClient'];
+
+      if (!mqttApiClient) {
+        throw new Error('MQTT API client is not defined');
+      }
+
+      mqttApiClient['setVirtualRemoteCommand'] = setVirtualRemoteCommandSpy;
+
+      fanAccessory['sendVirtualRemoteCommand'](mockSpeedValue);
+
+      expect(setVirtualRemoteCommandSpy).toHaveBeenCalledWith(expected);
+    });
+
+    it('should send the correct command to the virtual remote for speed value 50', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
+
+      const mockSpeedValue = 50;
+      const expected = 'medium';
+
+      const setVirtualRemoteCommandSpy = vi.fn();
+
+      const mqttApiClient = fanAccessory['mqttApiClient'];
+
+      if (!mqttApiClient) {
+        throw new Error('MQTT API client is not defined');
+      }
+
+      mqttApiClient['setVirtualRemoteCommand'] = setVirtualRemoteCommandSpy;
+
+      fanAccessory['sendVirtualRemoteCommand'](mockSpeedValue);
+
+      expect(setVirtualRemoteCommandSpy).toHaveBeenCalledWith(expected);
+    });
+
+    it('should send the correct command to the virtual remote for speed value 100', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMock);
+
+      const mockSpeedValue = 100;
+      const expected = 'high';
+
+      const setVirtualRemoteCommandSpy = vi.fn();
+
+      const mqttApiClient = fanAccessory['mqttApiClient'];
+
+      if (!mqttApiClient) {
+        throw new Error('MQTT API client is not defined');
+      }
+
+      mqttApiClient['setVirtualRemoteCommand'] = setVirtualRemoteCommandSpy;
+
+      fanAccessory['sendVirtualRemoteCommand'](mockSpeedValue);
+
+      expect(setVirtualRemoteCommandSpy).toHaveBeenCalledWith(expected);
     });
   });
 });
