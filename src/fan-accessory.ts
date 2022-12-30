@@ -165,11 +165,6 @@ export class FanAccessory {
     this.service
       .getCharacteristic(this.platform.Characteristic.Identify)
       .onGet(this.handleGetIdentify.bind(this));
-
-    // this.service
-    //   .getCharacteristic(this.platform.Characteristic.TargetFanState)
-    //   .onSet(this.handleSetTargetFanState.bind(this))
-    //   .onGet(this.handleGetTargetFanState.bind(this));
   }
 
   get log() {
@@ -208,72 +203,6 @@ export class FanAccessory {
 
     return !this.config.device?.co2Sensor && !this.config.device?.nonCve;
   }
-
-  // get targetFanState(): Nullable<CharacteristicValue> {
-  //   return this.service.getCharacteristic(this.platform.Characteristic.TargetFanState).value;
-  // }
-
-  // setTargetFanState(value?: FanInfo) {
-  //   // MANUAL = 0
-  //   // AUTO = 1
-
-  //   const currentValue = this.service.getCharacteristic(
-  //     this.platform.Characteristic.TargetFanState,
-  //   ).value;
-
-  //   const currentTargetFanStateName = this.getTargetFanStateName(currentValue as number);
-
-  //   // Assume it's in auto mode if we don't have any fan info
-  //   if (!value) {
-  //     if (currentValue === this.platform.Characteristic.TargetFanState.AUTO) {
-  //       this.log.debug(
-  //         `TargetFanState: Already set to: ${currentValue} (${currentTargetFanStateName}). Ignoring.`,
-  //       );
-  //       return;
-  //     }
-
-  //     this.log.debug('No fan info, assuming auto mode');
-
-  //     this.service.updateCharacteristic(
-  //       this.platform.Characteristic.TargetFanState,
-  //       this.platform.Characteristic.TargetFanState.AUTO,
-  //     );
-
-  //     return;
-  //   }
-
-  //   if (value === 'auto' || value === 'medium' || value === '3') {
-  //     if (currentValue === this.platform.Characteristic.TargetFanState.AUTO) {
-  //       this.log.debug(
-  //         `TargetFanState: Already set to: ${currentValue} (${currentTargetFanStateName}). Ignoring.`,
-  //       );
-  //       return;
-  //     }
-
-  //     this.log.debug(`TargetFanState: Setting to: ${value} (was: ${currentValue})`);
-
-  //     this.service.updateCharacteristic(
-  //       this.platform.Characteristic.TargetFanState,
-  //       this.platform.Characteristic.TargetFanState.AUTO,
-  //     );
-
-  //     return;
-  //   }
-
-  //   if (currentValue === this.platform.Characteristic.TargetFanState.MANUAL) {
-  //     this.log.debug(
-  //       `TargetFanState: Already set to: ${currentValue} (${currentTargetFanStateName}). Ignoring.`,
-  //     );
-  //     return;
-  //   }
-
-  //   this.log.debug(`TargetFanState: Setting to: ${value} (was: ${currentValue})`);
-
-  //   this.service.updateCharacteristic(
-  //     this.platform.Characteristic.TargetFanState,
-  //     this.platform.Characteristic.TargetFanState.MANUAL,
-  //   );
-  // }
 
   setRotationSpeed(value: number): void {
     const currentValue = this.service.getCharacteristic(
@@ -508,21 +437,6 @@ export class FanAccessory {
     }
   }
 
-  // async handleSetTargetFanState(value: CharacteristicValue): Promise<void> {
-  //   // 0 = Manual
-  //   // 1 = Auto
-
-  //   const targetFanStateName = this.getTargetFanStateName(value as number);
-
-  //   this.log.debug(`Setting TargetFanState to ${targetFanStateName} (${value})`);
-
-  //   // TODO: save in api / mqtt
-  //   // TODO: to set manual, add +1 to speed value to setSpeed {"speed": currentSpeed + 1}?
-  //   // TODO: to set auto, send {"vremote": "medium", "command": "medium"}?
-
-  //   this.service.updateCharacteristic(this.platform.Characteristic.TargetFanState, value);
-  // }
-
   /**
    * Handle the "GET" requests from HomeKit
    * These are sent when HomeKit wants to know the current state of the accessory, for example, checking if a Light bulb is on.
@@ -624,19 +538,6 @@ export class FanAccessory {
 
     return currentValue;
   }
-
-  // handleGetTargetFanState(): Nullable<CharacteristicValue> {
-  //   // 0 = Manual
-  //   // 1 = Auto
-
-  //   const currentValue = this.targetFanState;
-
-  //   const currentTargetFanStateName = this.getTargetFanStateName(currentValue as number);
-
-  //   this.log.info(`TargetFanState is ${currentTargetFanStateName} (${currentValue})`);
-
-  //   return currentValue;
-  // }
 
   handleGetIdentify(): Nullable<CharacteristicValue> {
     this.log.warn('Identify feature not supported.');
