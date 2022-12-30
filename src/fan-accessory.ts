@@ -210,7 +210,7 @@ export class FanAccessory {
     // If the device is a non-CVE device, we cannot control the fan speed manually. We also have to use virtual remote commands for this.
     // https://github.com/arjenhiemstra/ithowifi/wiki/Non-CVE-units-support#how-to-control-the-speed
 
-    return !this.config.device?.co2Sensor || !this.config.device?.nonCve;
+    return !this.config.device?.co2Sensor && !this.config.device?.nonCve;
   }
 
   // get targetFanState(): Nullable<CharacteristicValue> {
@@ -396,9 +396,17 @@ export class FanAccessory {
   sendVirtualRemoteCommand(speedValue: number): void {
     const virtualRemoteCommand = getVirtualRemoteCommandForRotationSpeed(speedValue);
 
-    this.log.warn(
-      `Your unit has a build in CO2 sensor, which prohibits the use of manual speed control. We'll map the speed "${speedValue}" to a virtual remote command "${virtualRemoteCommand}" instead.`,
-    );
+    if (this.config.device?.co2Sensor) {
+      this.log.warn(
+        `Your unit has a build in CO2 sensor, which prohibits the use of manual speed control. We'll map the speed "${speedValue}" to a virtual remote command "${virtualRemoteCommand}" instead.`,
+      );
+    }
+
+    if (this.config.device?.nonCve) {
+      this.log.warn(
+        `Your unit is not a CVE unit, which prohibits the use of manual speed control. We'll map the speed "${speedValue}" to a virtual remote command "${virtualRemoteCommand}" instead.`,
+      );
+    }
 
     if (this.mqttApiClient) {
       this.mqttApiClient.setVirtualRemoteCommand(virtualRemoteCommand);
