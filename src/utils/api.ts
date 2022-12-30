@@ -1,10 +1,10 @@
 import { FALLBACK_VIRTUAL_REMOTE_COMMAND } from '@/settings';
-import { FanInfo } from '@/types';
-
-const supportedVirtualRemoteCommands = ['low', 'medium', 'high'] as const;
-type SupportedVirtualRemoteCommands = typeof supportedVirtualRemoteCommands[number];
-// type SupportedVirtualRemoteCommands = 'low' | 'medium' | 'high';
-type VirtualRemoteMapping = Record<SupportedVirtualRemoteCommands, [number, number]>;
+import {
+  FanInfo,
+  supportedVirtualRemoteCommands,
+  SupportedVirtualRemoteCommands,
+  VirtualRemoteMapping,
+} from '@/types';
 
 function getVirtualRemoteMapping(): VirtualRemoteMapping {
   const min = 0;
@@ -67,6 +67,10 @@ export function getRotationSpeedFromFanInfo(fanInfo?: FanInfo): number {
   const virtualRemoteMapping = getVirtualRemoteMapping();
 
   let virtualRemoteCommand = FALLBACK_VIRTUAL_REMOTE_COMMAND;
+
+  if (fanInfo === 'auto') {
+    virtualRemoteCommand = FALLBACK_VIRTUAL_REMOTE_COMMAND;
+  }
 
   // If the FanInfo is low, medium or high, we'll use that as the virtual remote command
   // Any other value will fallback to medium, as defined above

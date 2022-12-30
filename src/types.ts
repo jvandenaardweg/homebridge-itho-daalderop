@@ -85,3 +85,9 @@ export enum VirtualRemoteOptions {
   JOIN = 'join',
   LEAVE = 'leave',
 }
+
+export const supportedVirtualRemoteCommands = ['low', 'medium', 'high'] as const;
+
+export type SupportedVirtualRemoteCommands = typeof supportedVirtualRemoteCommands[number];
+
+export type VirtualRemoteMapping = Record<SupportedVirtualRemoteCommands, [number, number]>;
