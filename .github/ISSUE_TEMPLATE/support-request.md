@@ -1,9 +1,10 @@
 ---
 name: Support Request
 about: Need help?
-title: ""
+title: ''
 labels: question
-assignees: ""
+assignees: ''
+
 ---
 
 <!-- You must use the issue template below when submitting a support request -->
