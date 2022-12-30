@@ -9,6 +9,7 @@ describe('config.schema.json', () => {
     const nameProperty: keyof ConfigSchema = 'name';
     const apiProperty: keyof ConfigSchema = 'api';
     const verboseLoggingProperty: keyof ConfigSchema = 'verboseLogging';
+    const deviceProperty: keyof ConfigSchema = 'device';
 
     const properties = configSchemaJson.schema.properties;
 
@@ -24,6 +25,14 @@ describe('config.schema.json', () => {
     expect(properties.verboseLogging.required).toBe(false);
     expect(properties.verboseLogging.type).toBe('boolean');
     expect(properties.verboseLogging.default).toBe(false);
+
+    const deviceProperties = properties.device.properties;
+
+    expect(properties).toHaveProperty(deviceProperty);
+    expect(deviceProperties.co2Sensor).toHaveProperty('required');
+    expect(deviceProperties.co2Sensor.required).toBe(false);
+    expect(deviceProperties.co2Sensor.type).toBe('boolean');
+    expect(deviceProperties.co2Sensor.default).toBe(false);
 
     const apiProperties = properties.api.properties;
 
