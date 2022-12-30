@@ -11,6 +11,8 @@ import {
   MAX_ROTATION_SPEED,
   MQTT_STATE_TOPIC,
   MQTT_STATUS_TOPIC,
+  REQ_FAN_SPEED_KEY,
+  SPEED_STATUS_KEY,
 } from './settings';
 import {
   getRotationSpeedFromActualMode,
@@ -427,11 +429,10 @@ export class FanAccessory {
     this.lastStatusPayload = statusPayload;
     this.lastStatusPayloadTimestamp = Date.now();
 
-    const currentSpeedStatus = statusPayload['Speed status'] || 0;
-    // const currentFanInfo = statusPayload['FanInfo'];
+    const currentSpeedStatus =
+      statusPayload[SPEED_STATUS_KEY] || statusPayload[REQ_FAN_SPEED_KEY] || 0;
 
     this.setCurrentFanState(currentSpeedStatus);
-    // this.setTargetFanState(currentFanInfo);
   }
 
   handleSpeedResponse(speed: number) {

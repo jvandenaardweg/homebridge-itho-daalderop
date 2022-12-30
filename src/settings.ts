@@ -44,5 +44,7 @@ export const ACTIVE_SPEED_THRESHOLD = 20;
 export const CO2_LEVEL_SENSOR_KEY = 'CO2level (ppm)';
 export const FAN_INFO_KEY = 'FanInfo';
 export const ACTUAL_MODE_KEY = 'Actual_Mode';
+export const SPEED_STATUS_KEY = 'Speed status'; // percentage
+export const REQ_FAN_SPEED_KEY = 'ReqFanspeed'; // rpm
 
 export const FALLBACK_VIRTUAL_REMOTE_COMMAND = 'medium';
