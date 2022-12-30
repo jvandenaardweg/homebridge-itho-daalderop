@@ -106,8 +106,8 @@ export function getRotationSpeedFromFanInfo(fanInfo?: FanInfo): number {
  * - ActualMode `1` = `"low"`
  * - ActualMode `2` = `"medium"`
  * - ActualMode `3` = `"high"`
- * - ActualMode `24` = `"medium"` (auto)
- * - ActualMode `anything else` = `"medium"` (auto)
+ * - ActualMode `24` = `"auto"`
+ * - ActualMode `anything else` = `"medium"`
  *
  * @link: https://github.com/arjenhiemstra/ithowifi/wiki/Non-CVE-units-support
  */
@@ -120,6 +120,8 @@ export function getRotationSpeedFromActualMode(actualMode?: ActualMode): number 
     virtualRemoteCommand = 'low';
   }
 
+  // It seems we can't set the fan to "auto" mode, so we'll map 24 to "medium" instead
+  // https://github.com/arjenhiemstra/ithowifi/issues/47#issuecomment-960115941
   if (actualMode === 2 || actualMode === 24) {
     virtualRemoteCommand = 'medium';
   }
