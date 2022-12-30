@@ -4,6 +4,7 @@ import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
 import {
   ACTIVE_SPEED_THRESHOLD,
+  ACTUAL_MODE_KEY,
   DEFAULT_FAN_NAME,
   FAN_INFO_KEY,
   MANUFACTURER,
@@ -12,6 +13,7 @@ import {
   MQTT_STATUS_TOPIC,
 } from './settings';
 import {
+  getRotationSpeedFromActualMode,
   getRotationSpeedFromFanInfo,
   getVirtualRemoteCommandForRotationSpeed,
   sanitizeStatusPayload,
@@ -204,7 +206,11 @@ export class FanAccessory {
     // We need to use the virtual remote commands.
     // https://github.com/arjenhiemstra/ithowifi/wiki/CO2-sensors#itho-with-built-in-co2--sensor-cve-s-optima-inside
     // https://gathering.tweakers.net/forum/list_message/73948328#73948328
-    return !this.config.device?.co2Sensor;
+
+    // If the device is a non-CVE device, we cannot control the fan speed manually. We also have to use virtual remote commands for this.
+    // https://github.com/arjenhiemstra/ithowifi/wiki/Non-CVE-units-support#how-to-control-the-speed
+
+    return !this.config.device?.co2Sensor || !this.config.device?.nonCve;
   }
 
   // get targetFanState(): Nullable<CharacteristicValue> {
@@ -299,16 +305,6 @@ export class FanAccessory {
     if (isNaN(value)) {
       this.log.error(`Active: Value is not a number: ${value}`);
       return;
-    }
-
-    if (
-      (value === this.platform.Characteristic.Active.INACTIVE &&
-        this.lastStatusPayload?.[FAN_INFO_KEY] === 'auto') ||
-      this.lastStatusPayload?.[FAN_INFO_KEY] === 'medium'
-    ) {
-      this.log.warn(
-        'Important, you are disabling the fan, but it is in auto/medium mode. So it will probably turn on again.',
-      );
     }
 
     if (currentValue === value) {
@@ -572,13 +568,40 @@ export class FanAccessory {
 
   async handleGetRotationSpeed(): Promise<Nullable<CharacteristicValue>> {
     if (!this.allowsManualSpeedControl) {
-      const fanInfo = this.lastStatusPayload?.[FAN_INFO_KEY];
+      // non-cve devices
+      // https://github.com/arjenhiemstra/ithowifi/wiki/Non-CVE-units-support#how-to-control-the-speed
+      if (this.config.device?.nonCve) {
+        const actualMode = this.lastStatusPayload?.[ACTUAL_MODE_KEY];
 
-      const rotationSpeed = getRotationSpeedFromFanInfo(fanInfo);
+        if (!actualMode) {
+          this.log.warn(`${ACTUAL_MODE_KEY} property not found, returning 0 as RotationSpeed.`);
 
-      this.log.info(`RotationSpeed is ${rotationSpeed}/${MAX_ROTATION_SPEED} (${fanInfo})`);
+          return 0;
+        }
 
-      return rotationSpeed;
+        const rotationSpeed = getRotationSpeedFromActualMode(actualMode);
+
+        this.log.info(`RotationSpeed is ${rotationSpeed}/${MAX_ROTATION_SPEED} (${actualMode})`);
+
+        return rotationSpeed;
+      }
+
+      // cve device with co2 sensor
+      if (this.config.device?.co2Sensor) {
+        const fanInfo = this.lastStatusPayload?.[FAN_INFO_KEY];
+
+        if (!fanInfo) {
+          this.log.warn(`${FAN_INFO_KEY} property not found, returning 0 as RotationSpeed.`);
+
+          return 0;
+        }
+
+        const rotationSpeed = getRotationSpeedFromFanInfo(fanInfo);
+
+        this.log.info(`RotationSpeed is ${rotationSpeed}/${MAX_ROTATION_SPEED} (${fanInfo})`);
+
+        return rotationSpeed;
+      }
     }
 
     let rotationSpeedNumber: number;

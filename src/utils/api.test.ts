@@ -1,5 +1,6 @@
-import { FanInfo } from '@/types';
+import { ActualMode, FanInfo } from '@/types';
 import {
+  getRotationSpeedFromActualMode,
   getRotationSpeedFromFanInfo,
   getVirtualRemoteCommandForRotationSpeed,
   sanitizeStatusPayload,
@@ -63,6 +64,28 @@ describe('utils/api', () => {
 
     it('should return 100 when the virtual remote command is "high"', () => {
       expect(getRotationSpeedFromFanInfo('high')).toEqual(100);
+    });
+  });
+
+  describe('getRotationSpeedFromActualMode()', () => {
+    it('should return 33.333 when the actual mode is 1', () => {
+      expect(getRotationSpeedFromActualMode(1)).toEqual(33.333333333333336);
+    });
+
+    it('should return 66.666 when the actual mode is 2', () => {
+      expect(getRotationSpeedFromActualMode(2)).toEqual(66.66666666666667);
+    });
+
+    it('should return 66.666 when the actual mode is 24', () => {
+      expect(getRotationSpeedFromActualMode(24)).toEqual(66.66666666666667);
+    });
+
+    it('should return 66.666 when the actual mode is not "low", "medium", "auto" or "high"', () => {
+      expect(getRotationSpeedFromActualMode('unknown' as never)).toEqual(66.66666666666667);
+    });
+
+    it('should return 100 when the actual mode is 3', () => {
+      expect(getRotationSpeedFromActualMode(3)).toEqual(100);
     });
   });
 });

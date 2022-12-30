@@ -28,7 +28,13 @@
 
         "properties": {
           "co2Sensor": {
-            "title": "Using build-in CO2 Sensor",
+            "title": "Using built-in CO2 Sensor",
+            "type": "boolean",
+            "required": false,
+            "default": false
+          },
+          "nonCve": {
+            "title": "Is a HRU-350, DemandFlow, QualityFlow or HRU Eco Fan",
             "type": "boolean",
             "required": false,
             "default": false
@@ -107,7 +113,11 @@
           "items": [
             {
               "key": "device.co2Sensor",
-              "description": "Indicate wether your fan is using the build-in CO2 sensor. If so, the plugin will automatically switch to using virtual remote commands like low, medium or high instead of rotation speed 0 - 100 to set the fan speed. <a href='https://github.com/jvandenaardweg/homebridge-itho-daalderop#about-manual-speed-control'>More about this in the README</a>."
+              "description": "Indicate wether your fan is using the built-in CO2 sensor. If so, the plugin will automatically switch to using virtual remote commands like low, medium or high instead of rotation speed 0 - 100 to set the fan speed. <a href='https://github.com/jvandenaardweg/homebridge-itho-daalderop#about-manual-speed-control'>More about this in the README</a>."
+            },
+            {
+              "key": "device.nonCve",
+              "description": "Indicate if your device is a non-CVE device like HRU-350, DemandFlow, QualityFlow or HRU Eco Fan. If so, the plugin will automatically switch to using virtual remote commands like low, medium or high instead of rotation speed 0 - 100 to set the fan speed. <a href='https://github.com/jvandenaardweg/homebridge-itho-daalderop#about-manual-speed-control'>More about this in the README</a>."
             }
           ]
         }

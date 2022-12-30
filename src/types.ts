@@ -14,16 +14,15 @@ export const virtualRemoteCommands = [
 ] as const;
 export type VirtualRemoteCommand = typeof virtualRemoteCommands[number];
 
-// TODO: are there more options?
-// TODO: is this different for other models?
 // https://github.com/arjenhiemstra/ithowifi/wiki/Controlling-the-speed-of-a-fan
 export type FanInfo = 'auto' | 'low' | 'medium' | 'high';
 
+// https://github.com/arjenhiemstra/ithowifi/wiki/Non-CVE-units-support#how-to-control-the-speed
+// 1 = Low, 2 = Medium, 3 = high, 24 = Automatic
+export type ActualMode = 1 | 2 | 3 | 24;
+
 // Unknown what the values are, my box seems to show "7" when FanInfo is "auto", so i
 export type Selection = 'auto' | 'low' | 'medium' | 'high' | 1 | 2 | 3 | 4 | 5 | 6 | 7;
-
-// https://github.com/arjenhiemstra/ithowifi/wiki/Controlling-the-speed-of-a-fan#help-a-speed-command-does-not-work
-export type AutoMode = 'auto' | 'medium' | '3';
 
 export interface IthoStatusSanitizedPayload {
   temp: number | null;
@@ -44,7 +43,8 @@ export interface IthoStatusSanitizedPayload {
   'OutdoorTemp (°C)': number | null;
   SpeedCap: number | null;
   'BypassPos (%)': number | null;
-  FanInfo: FanInfo;
+  FanInfo?: FanInfo | null; // cve
+  Actual_Mode?: ActualMode | null; // non-cve
   'ExhFanSpeed (%)': number | null;
   'InFanSpeed (%)': number | null;
   'RemainingTime (min)': number | null;

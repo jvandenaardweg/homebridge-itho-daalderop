@@ -15,6 +15,11 @@ export const configSchema = z.object({
           invalid_type_error: "'co2Sensor' must be a boolean",
         })
         .optional(),
+      nonCve: z
+        .boolean({
+          invalid_type_error: "'nonCve' must be a boolean",
+        })
+        .optional(),
     })
     .optional(),
   api: z.object({

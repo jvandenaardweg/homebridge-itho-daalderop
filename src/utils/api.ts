@@ -1,5 +1,6 @@
 import { FALLBACK_VIRTUAL_REMOTE_COMMAND } from '@/settings';
 import {
+  ActualMode,
   FanInfo,
   supportedVirtualRemoteCommands,
   SupportedVirtualRemoteCommands,
@@ -76,6 +77,29 @@ export function getRotationSpeedFromFanInfo(fanInfo?: FanInfo): number {
   // Any other value will fallback to medium, as defined above
   if (supportedVirtualRemoteCommands.includes(fanInfo as never)) {
     virtualRemoteCommand = fanInfo as SupportedVirtualRemoteCommands;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_, maxSpeed] = virtualRemoteMapping[virtualRemoteCommand];
+
+  return maxSpeed;
+}
+
+export function getRotationSpeedFromActualMode(actualMode?: ActualMode): number {
+  const virtualRemoteMapping = getVirtualRemoteMapping();
+
+  let virtualRemoteCommand: SupportedVirtualRemoteCommands = FALLBACK_VIRTUAL_REMOTE_COMMAND;
+
+  if (actualMode === 1) {
+    virtualRemoteCommand = 'low';
+  }
+
+  if (actualMode === 2 || actualMode === 24) {
+    virtualRemoteCommand = 'medium';
+  }
+
+  if (actualMode === 3) {
+    virtualRemoteCommand = 'high';
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
