@@ -86,7 +86,7 @@ The plugin allows full manual speed control from 0% to 100% and everything in be
 
 This also applies to non-CVE devices like HRU-350, DemandFlow, QualityFlow or HRU Eco Fan. These devices do not support manual speed control, we can only use the "low", "medium" and "high" speed settings.
 
-If you have such a device with a built-in CO2 sensor, please add the `device` configuration option to your config.json file and set the `co2Sensor` option to `true`. If you have a non-CVE device set the `nonCve` option to `true`. Or use the Homebridge UI to set these options. The plugin will then automatically map the speed in the Home App to the respective virtual remote commands, which will allow you to control the fan speed in 3 steps. The mapping is as follows:
+If you have such a device, please add the `device` configuration option to your config.json file. For a built-in CO2 sensor set the `co2Sensor` option to `true`. If you have a non-CVE device set the `nonCve` option to `true`. Or use the Homebridge UI to set these options. The plugin will then automatically map the speed in the Home App to the respective virtual remote commands, which will allow you to control the fan speed in 3 steps. The mapping is as follows:
 
 | Home App speed | Virtual remote command | HomeKit Active state |
 | -------------- | ---------------------- | -------------------- |
