@@ -54,7 +54,7 @@ I recommend using the Homebridge UI to configure the plugin settings, as it give
 
 1. Go the the plugin settings in the Homebridge UI
 2. On the plugin page click on "Settings" for `Homebridge Itho Daalderop`
-3. Let the plugin know if you have a build-in CO2 sensor in your fan unit
+3. Let the plugin know if you have a built-in CO2 sensor in your fan unit or if you have a non-CVE unit like the HRU-350, DemandFlow, QualityFlow or HR
 4. And choose between using MQTT or the HTTP API and fill in the required settings
 5. Save the config
 6. Click the little QR code icon for the plugin and enable the bridge. Save it and restart Homebridge
