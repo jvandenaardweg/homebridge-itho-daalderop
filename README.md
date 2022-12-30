@@ -91,7 +91,7 @@ If you have such a device with a built-in CO2 sensor, please add the `device` co
 | 67% | medium/auto | active |
 | 100% | high | active |
 
-You can also remove the CO2 sensor from the device itself. Just unplug it from the internal board. This will allow you to use the full manual speed control, but you don't receive any Carbon Dioxide reading in the Home App for the Air Quality Sensor. Make sure you have removed the `device` configuration option completely.
+You can also remove the CO2 sensor from the device itself. Just unplug it from the internal board. This will allow you to use the full manual speed control, but you don't receive any Carbon Dioxide reading from this sensor anymore in the Home App for the Air Quality Sensor. Make sure you have removed the `device` configuration option completely.
 
 ## Troubleshooting
 
