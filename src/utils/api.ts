@@ -66,10 +66,10 @@ export function getVirtualRemoteCommandForRotationSpeed(
 export function getRotationSpeedFromFanInfo(fanInfo?: FanInfo): number {
   const virtualRemoteMapping = getVirtualRemoteMapping();
 
-  let virtualRemoteCommand = FALLBACK_VIRTUAL_REMOTE_COMMAND;
+  let virtualRemoteCommand: SupportedVirtualRemoteCommands = FALLBACK_VIRTUAL_REMOTE_COMMAND;
 
   if (fanInfo === 'auto') {
-    virtualRemoteCommand = FALLBACK_VIRTUAL_REMOTE_COMMAND;
+    virtualRemoteCommand = 'medium';
   }
 
   // If the FanInfo is low, medium or high, we'll use that as the virtual remote command
