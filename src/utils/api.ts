@@ -7,6 +7,11 @@ import {
   VirtualRemoteMapping,
 } from '@/types';
 
+/**
+ * Get the virtual remote mapping.
+ *
+ * This is used to map the rotation speed to a virtual remote command.
+ */
 function getVirtualRemoteMapping(): VirtualRemoteMapping {
   const min = 0;
   const max = 100;
@@ -22,6 +27,9 @@ function getVirtualRemoteMapping(): VirtualRemoteMapping {
   return virtualRemoteMapping;
 }
 
+/**
+ * Sanitizes the status payload by replacing `"not available"` with `null`.
+ */
 export function sanitizeStatusPayload<T>(message: string): T {
   const data = JSON.parse(message);
 
@@ -40,9 +48,9 @@ export function sanitizeStatusPayload<T>(message: string): T {
 }
 
 /**
- * Get the virtual remote command for the given rotation speed
+ * Get the virtual remote command for the given rotation speed.
  *
- * Will default to the medium speed when no match is found
+ * Will default to the medium speed when no match is found.
  */
 export function getVirtualRemoteCommandForRotationSpeed(
   rotationSpeed: number,
@@ -59,10 +67,15 @@ export function getVirtualRemoteCommandForRotationSpeed(
 }
 
 /**
- * Map the FanInfo value to the rotation speed
+ * Map the FanInfo value to the rotation speed.
  *
- * Will default to the medium speed when the fan is in auto mode
- * or the FanInfo is not a supported virtual remote command (low, medium, high)
+ * Will default to the medium speed when the fan is in auto mode or the FanInfo is not a supported virtual remote command (low, medium, high).
+ *
+ * - FanInfo `"auto"` = `"medium"`
+ * - FanInfo `"low"` = `"low"`
+ * - FanInfo `"medium"` = `"medium"` (auto)
+ * - FanInfo `"high"` = `"high"`
+ * - FanInfo `"anything else"` = `"medium"` (auto)
  */
 export function getRotationSpeedFromFanInfo(fanInfo?: FanInfo): number {
   const virtualRemoteMapping = getVirtualRemoteMapping();
@@ -85,6 +98,19 @@ export function getRotationSpeedFromFanInfo(fanInfo?: FanInfo): number {
   return maxSpeed;
 }
 
+/**
+ * Map the ActualMode value to the rotation speed.
+ *
+ * Will default to the medium speed when the ActualMode is not a supported virtual remote command (low, medium, high).
+ *
+ * - ActualMode `1` = `"low"`
+ * - ActualMode `2` = `"medium"`
+ * - ActualMode `3` = `"high"`
+ * - ActualMode `24` = `"medium"` (auto)
+ * - ActualMode `anything else` = `"medium"` (auto)
+ *
+ * @link: https://github.com/arjenhiemstra/ithowifi/wiki/Non-CVE-units-support
+ */
 export function getRotationSpeedFromActualMode(actualMode?: ActualMode): number {
   const virtualRemoteMapping = getVirtualRemoteMapping();
 
