@@ -32,6 +32,7 @@ const mockGetCharacteristics = () => {
     onGet: vi.fn().mockReturnThis(),
     getCharacteristics: mockGetCharacteristics,
     setCharacteristics: mockSetCharacteristics,
+    setProps: vi.fn().mockReturnThis(),
   };
 };
 
@@ -85,6 +86,20 @@ export const platformMock = {
     On: 'On',
     Name: 'Name',
     OutletInUse: 'OutletInUse',
+    RotationSpeed: 'RotationSpeed',
+    Active: {
+      INACTIVE: 0,
+      ACTIVE: 1,
+    },
+    TargetFanState: {
+      MANUAL: 0,
+      AUTO: 1,
+    },
+    CurrentFanState: {
+      INACTIVE: 0,
+      IDLE: 1,
+      BLOWING_AIR: 2,
+    },
   },
 } as unknown as HomebridgeIthoDaalderop;
 

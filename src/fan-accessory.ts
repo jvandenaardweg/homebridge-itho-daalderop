@@ -194,13 +194,6 @@ export class FanAccessory {
     };
   }
 
-  get isActive(): boolean {
-    return (
-      this.service.getCharacteristic(this.platform.Characteristic.Active).value ===
-      this.platform.Characteristic.Active.ACTIVE
-    );
-  }
-
   get allowsManualSpeedControl(): boolean {
     // The I2C to PWM protocol (manual speed control from 0 - 254) is overruled by the CO2 sensor. Virtual remote commands work as expected.
     // So, if the box has an internal CO2 sensor, we can't control the fan speed manually on a 0-254 (0-100 in homekit) scale.
@@ -285,11 +278,6 @@ export class FanAccessory {
       this.platform.Characteristic.RotationSpeed,
     ).value;
 
-    if (isNaN(value)) {
-      this.log.error(`RotationSpeed: Value is not a number: ${value}`);
-      return;
-    }
-
     if (currentValue === value) {
       this.log.debug(`RotationSpeed: Already set to: ${value}. Ignoring.`);
       return;
@@ -302,11 +290,6 @@ export class FanAccessory {
 
   setActive(value: number): void {
     const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
-
-    if (isNaN(value)) {
-      this.log.error(`Active: Value is not a number: ${value}`);
-      return;
-    }
 
     if (currentValue === value) {
       this.log.debug(`Active: Already set to: ${value}. Ignoring.`);
@@ -382,6 +365,7 @@ export class FanAccessory {
       key => this.platform.Characteristic.CurrentFanState[key] === value,
     );
   }
+
   getActiveName(value: number): string | undefined {
     return Object.keys(this.platform.Characteristic.Active).find(
       key => this.platform.Characteristic.Active[key] === value,
