@@ -411,9 +411,19 @@ export class FanAccessory {
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
    */
   handleSetActive(value: CharacteristicValue): void {
+    const currentActiveValue = this.service.getCharacteristic(
+      this.platform.Characteristic.Active,
+    ).value;
+
     const activeName = this.getActiveName(value as number);
 
-    this.log.info(`Setting Active to ${value} (${activeName})`);
+    if (currentActiveValue === value) {
+      this.log.debug(`Active: Already set to ${activeName}. Ignoring.`);
+
+      return;
+    }
+
+    this.log.info(`Active: Setting to: ${value} (was: ${currentActiveValue})`);
 
     // If value to set is 1 (ACTIVE), then we need to set the fan as active
     const activate = value === this.platform.Characteristic.Active.ACTIVE;
