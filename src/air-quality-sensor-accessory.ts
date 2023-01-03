@@ -1,7 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homebridge';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
-import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
+import { IthoDaalderopAccessoryContext, IthoCveStatusSanitizedPayload } from './types';
 import {
   CO2_LEVEL_SENSOR_KEY,
   DEFAULT_AIR_QUALITY_SENSOR_NAME,
@@ -25,7 +25,7 @@ export class AirQualitySensorAccessory {
   private service: Service;
   private mqttApiClient: MqttApi | null = null;
   private httpApiClient: HttpApi;
-  private lastStatusPayload: Nullable<IthoStatusSanitizedPayload> = null;
+  private lastStatusPayload: Nullable<IthoCveStatusSanitizedPayload> = null;
   private lastStatusPayloadTimestamp: Nullable<number> = null;
 
   constructor(
@@ -67,7 +67,7 @@ export class AirQualitySensorAccessory {
       this.log.debug(`Starting polling for status...`);
 
       this.httpApiClient.polling.getStatus.on('response.getStatus', response => {
-        this.handleStatusResponse(response as IthoStatusSanitizedPayload);
+        this.handleStatusResponse(response as IthoCveStatusSanitizedPayload);
       });
     }
 
@@ -228,7 +228,7 @@ export class AirQualitySensorAccessory {
     );
   }
 
-  getAirQualityFromStatusPayload(data: IthoStatusSanitizedPayload): number {
+  getAirQualityFromStatusPayload(data: IthoCveStatusSanitizedPayload): number {
     const ppm = data[CO2_LEVEL_SENSOR_KEY];
 
     if (isNil(ppm)) return this.platform.Characteristic.AirQuality.UNKNOWN;
@@ -248,7 +248,7 @@ export class AirQualitySensorAccessory {
       const messageString = message.toString();
 
       const sanitizedStatusPayload =
-        sanitizeStatusPayload<IthoStatusSanitizedPayload>(messageString);
+        sanitizeStatusPayload<IthoCveStatusSanitizedPayload>(messageString);
 
       this.handleStatusResponse(sanitizedStatusPayload);
 
@@ -256,7 +256,7 @@ export class AirQualitySensorAccessory {
     }
   }
 
-  handleStatusResponse(data: IthoStatusSanitizedPayload) {
+  handleStatusResponse(data: IthoCveStatusSanitizedPayload) {
     this.lastStatusPayload = data;
     this.lastStatusPayloadTimestamp = Date.now();
 

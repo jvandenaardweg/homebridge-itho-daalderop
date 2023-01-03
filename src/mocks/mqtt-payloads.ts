@@ -1,4 +1,8 @@
-import { IthoStatusPayload, IthoStatusSanitizedPayload } from '@/types';
+import {
+  IthoStatusPayload,
+  IthoCveStatusSanitizedPayload,
+  IthoNonCveStatusSanitizedPayload,
+} from '@/types';
 
 export const mockIthoStatePayload = '45';
 
@@ -45,7 +49,7 @@ export const mockPayload: IthoStatusPayload = {
   Temperature: 23.85,
 };
 
-export const mockSanitizedPayload: IthoStatusSanitizedPayload = {
+export const mockSanitizedStatusPayload: IthoCveStatusSanitizedPayload = {
   temp: 23.9,
   hum: 41.8,
   ppmw: 7805,
@@ -84,4 +88,45 @@ export const mockSanitizedPayload: IthoStatusSanitizedPayload = {
   'Highest RH concentration (%)': 41,
   RelativeHumidity: 41.77,
   Temperature: 23.85,
+};
+
+// A response status payload from a non-CVE box
+// From: https://github.com/arjenhiemstra/ithowifi/issues/47#issue-1043269122
+// https://github.com/arjenhiemstra/ithowifi/issues/40#issuecomment-958345694
+// https://github.com/arjenhiemstra/ithowifi/wiki/Non-CVE-units-support#itho-status-data
+export const mockNonCveStatusPayload: IthoNonCveStatusSanitizedPayload = {
+  temp: 0,
+  hum: 0,
+  ppmw: 0,
+  ReqFanspeed: 6552.6,
+  Balance: 0,
+  supply_fan_requested: 3100,
+  supply_fan_actual: 3093,
+  exhaust_fan_requested: 3159,
+  exhaust_fan_actual: 3173,
+  supplyTemp: 15.85,
+  exhaustTemp: 8.31,
+  status: 0,
+  RoomTemp: 15.85,
+  OutdoorTemp: 8.31,
+  Valve_position: 0,
+  Bypass_position: 0,
+  Summercounter: 0,
+  Summerday: 0,
+  FrostTimer: 0,
+  BoilTimer: 177,
+  StartCounter: 120,
+  CurPosition: 0,
+  VKKswitch: 0,
+  GroundHeatExchangerSwitch: 0,
+  AirCounter: 2615,
+  Global_fault_code: 0,
+  Actual_Mode: 3,
+  pir_fan_speed_level: -1,
+  Highest_received_CO2_value: 592,
+  Highest_received_RH_value: 239,
+  Air_Quality: 100,
+  Remaining_override_timer: 0,
+  Fallback_speed_timer: 56,
+  Exhaust_Constant_Ca0: 2,
 };

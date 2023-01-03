@@ -24,7 +24,7 @@ export type ActualMode = 1 | 2 | 3 | 24;
 // Unknown what the values are, my box seems to show "7" when FanInfo is "auto", so i
 export type Selection = 'auto' | 'low' | 'medium' | 'high' | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
-export interface IthoStatusSanitizedPayload {
+export interface IthoCveStatusSanitizedPayload {
   temp: number | null;
   hum: number | null;
   ppmw: number | null;
@@ -66,8 +66,45 @@ export interface IthoStatusSanitizedPayload {
   Temperature: number | null;
 }
 
+export interface IthoNonCveStatusSanitizedPayload {
+  temp: number | null;
+  hum: number | null;
+  ppmw: number | null;
+  ReqFanspeed: number | null;
+  Balance: number | null;
+  supply_fan_requested: number | null;
+  supply_fan_actual: number | null;
+  exhaust_fan_requested: number | null;
+  exhaust_fan_actual: number | null;
+  supplyTemp: number | null;
+  exhaustTemp: number | null;
+  status: number | null;
+  RoomTemp: number | null;
+  OutdoorTemp: number | null;
+  Valve_position: number | null;
+  Bypass_position: number | null;
+  Summercounter: number | null;
+  Summerday: number | null;
+  FrostTimer: number | null;
+  BoilTimer: number | null;
+  StartCounter: number | null;
+  CurPosition: number | null;
+  VKKswitch: number | null;
+  GroundHeatExchangerSwitch: number | null;
+  AirCounter: number | null;
+  Global_fault_code: number | null;
+  Actual_Mode: ActualMode | null;
+  pir_fan_speed_level: number | null;
+  Highest_received_CO2_value: number | null;
+  Highest_received_RH_value: number | null;
+  Air_Quality: number | null;
+  Remaining_override_timer: number | null;
+  Fallback_speed_timer: number | null;
+  Exhaust_Constant_Ca0: number | null;
+}
+
 export type IthoStatusPayload = {
-  [K in keyof IthoStatusSanitizedPayload]: number | string;
+  [K in keyof IthoCveStatusSanitizedPayload]: number | string;
 };
 
 export type IthoGetSpeedResponse = number; // example: 45

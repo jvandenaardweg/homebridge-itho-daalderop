@@ -77,7 +77,7 @@ export function getVirtualRemoteCommandForRotationSpeed(
  * - FanInfo `"high"` = `"high"`
  * - FanInfo `"anything else"` = `"medium"` (auto)
  */
-export function getRotationSpeedFromFanInfo(fanInfo?: FanInfo): number {
+export function getMappedRotationSpeedFromFanInfo(fanInfo?: FanInfo): number {
   const virtualRemoteMapping = getVirtualRemoteMapping();
 
   let virtualRemoteCommand: SupportedVirtualRemoteCommands = FALLBACK_VIRTUAL_REMOTE_COMMAND;
@@ -111,7 +111,7 @@ export function getRotationSpeedFromFanInfo(fanInfo?: FanInfo): number {
  *
  * @link: https://github.com/arjenhiemstra/ithowifi/wiki/Non-CVE-units-support
  */
-export function getRotationSpeedFromActualMode(actualMode?: ActualMode): number {
+export function getMappedRotationSpeedFromActualMode(actualMode?: ActualMode): number {
   const virtualRemoteMapping = getVirtualRemoteMapping();
 
   let virtualRemoteCommand: SupportedVirtualRemoteCommands = FALLBACK_VIRTUAL_REMOTE_COMMAND;

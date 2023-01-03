@@ -1,7 +1,7 @@
 import { ActualMode, FanInfo } from '@/types';
 import {
-  getRotationSpeedFromActualMode,
-  getRotationSpeedFromFanInfo,
+  getMappedRotationSpeedFromActualMode,
+  getMappedRotationSpeedFromFanInfo,
   getVirtualRemoteCommandForRotationSpeed,
   sanitizeStatusPayload,
 } from './api';
@@ -47,45 +47,45 @@ describe('utils/api', () => {
 
   describe('getRotationSpeedForVirtualRemoteCommand()', () => {
     it('should return 33.333 when the virtual remote command is "low"', () => {
-      expect(getRotationSpeedFromFanInfo('low')).toEqual(33.333333333333336);
+      expect(getMappedRotationSpeedFromFanInfo('low')).toEqual(33.333333333333336);
     });
 
     it('should return 66.666 when the virtual remote command is "medium"', () => {
-      expect(getRotationSpeedFromFanInfo('medium')).toEqual(66.66666666666667);
+      expect(getMappedRotationSpeedFromFanInfo('medium')).toEqual(66.66666666666667);
     });
 
     it('should return 66.666 when the virtual remote command is "auto"', () => {
-      expect(getRotationSpeedFromFanInfo('auto')).toEqual(66.66666666666667);
+      expect(getMappedRotationSpeedFromFanInfo('auto')).toEqual(66.66666666666667);
     });
 
     it('should return 66.666 when the virtual remote command is not "low", "medium", "auto" or "high"', () => {
-      expect(getRotationSpeedFromFanInfo('unknown' as FanInfo)).toEqual(66.66666666666667);
+      expect(getMappedRotationSpeedFromFanInfo('unknown' as FanInfo)).toEqual(66.66666666666667);
     });
 
     it('should return 100 when the virtual remote command is "high"', () => {
-      expect(getRotationSpeedFromFanInfo('high')).toEqual(100);
+      expect(getMappedRotationSpeedFromFanInfo('high')).toEqual(100);
     });
   });
 
   describe('getRotationSpeedFromActualMode()', () => {
     it('should return 33.333 when the actual mode is 1', () => {
-      expect(getRotationSpeedFromActualMode(1)).toEqual(33.333333333333336);
+      expect(getMappedRotationSpeedFromActualMode(1)).toEqual(33.333333333333336);
     });
 
     it('should return 66.666 when the actual mode is 2', () => {
-      expect(getRotationSpeedFromActualMode(2)).toEqual(66.66666666666667);
+      expect(getMappedRotationSpeedFromActualMode(2)).toEqual(66.66666666666667);
     });
 
     it('should return 66.666 when the actual mode is 24', () => {
-      expect(getRotationSpeedFromActualMode(24)).toEqual(66.66666666666667);
+      expect(getMappedRotationSpeedFromActualMode(24)).toEqual(66.66666666666667);
     });
 
     it('should return 66.666 when the actual mode is not "low", "medium", "auto" or "high"', () => {
-      expect(getRotationSpeedFromActualMode('unknown' as never)).toEqual(66.66666666666667);
+      expect(getMappedRotationSpeedFromActualMode('unknown' as never)).toEqual(66.66666666666667);
     });
 
     it('should return 100 when the actual mode is 3', () => {
-      expect(getRotationSpeedFromActualMode(3)).toEqual(100);
+      expect(getMappedRotationSpeedFromActualMode(3)).toEqual(100);
     });
   });
 });

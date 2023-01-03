@@ -1,7 +1,7 @@
 import {
   IthoGetSpeedResponse,
   IthoSetSpeedResponse,
-  IthoStatusSanitizedPayload,
+  IthoCveStatusSanitizedPayload,
   VirtualRemoteCommand,
 } from '@/types';
 import { sanitizeStatusPayload } from '@/utils/api';
@@ -52,7 +52,7 @@ export class HttpApi {
   }
 
   // TODO: find better way for response events
-  on<T extends IthoStatusSanitizedPayload>(
+  on<T extends IthoCveStatusSanitizedPayload>(
     event: 'response.getStatus',
     listener: (response: T) => void,
   ): void;
@@ -138,7 +138,7 @@ export class HttpApi {
     return currentSpeed as T;
   }
 
-  async getStatus<T extends IthoStatusSanitizedPayload>(): Promise<T> {
+  async getStatus<T extends IthoCveStatusSanitizedPayload>(): Promise<T> {
     // Make a copy of the URL so we don't modify the original
     const requestUrl = new URL(this.url.toString());
     requestUrl.searchParams.set('get', 'ithostatus');

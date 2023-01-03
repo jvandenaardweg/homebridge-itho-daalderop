@@ -1,22 +1,19 @@
 import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homebridge';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
-import { IthoDaalderopAccessoryContext, IthoStatusSanitizedPayload } from './types';
+import { IthoDaalderopAccessoryContext, IthoCveStatusSanitizedPayload } from './types';
 import {
   ACTIVE_SPEED_THRESHOLD,
-  ACTUAL_MODE_KEY,
   DEFAULT_FAN_NAME,
   FAN_INFO_KEY,
   MANUFACTURER,
-  MAX_ROTATION_SPEED,
   MQTT_STATE_TOPIC,
   MQTT_STATUS_TOPIC,
   REQ_FAN_SPEED_KEY,
   SPEED_STATUS_KEY,
 } from './settings';
 import {
-  getRotationSpeedFromActualMode,
-  getRotationSpeedFromFanInfo,
+  getMappedRotationSpeedFromFanInfo,
   getVirtualRemoteCommandForRotationSpeed,
   sanitizeStatusPayload,
 } from './utils/api';
@@ -26,6 +23,8 @@ import { HttpApi } from './api/http';
 import { MqttApi } from './api/mqtt';
 import { serialNumberFromUUID } from './utils/serial';
 import { PLUGIN_VERSION } from './version';
+
+const SYNC_ROTATION_SPEED_INTERVAL = 5000; // 5 seconds
 
 /**
  * Platform Accessory
@@ -37,11 +36,13 @@ export class FanAccessory {
   private informationService: Service | undefined;
   private mqttApiClient: MqttApi | null = null;
   private httpApiClient: HttpApi;
-  private lastStatusPayload: Nullable<IthoStatusSanitizedPayload> = null;
+  private lastStatusPayload: Nullable<IthoCveStatusSanitizedPayload> = null;
   private lastStatusPayloadTimestamp: Nullable<number> = null;
   /** A number between 0 and 254 */
   private lastStatePayload: Nullable<number> = null;
   private lastStatePayloadTimestamp: Nullable<number> = null;
+  private lastManuallySetRotationSpeedTimestamp: Nullable<number> = null;
+  private lastManuallySetActiveTimestamp: Nullable<number> = null;
 
   constructor(
     private readonly platform: HomebridgeIthoDaalderop,
@@ -136,8 +137,9 @@ export class FanAccessory {
 
     this.service
       .getCharacteristic(this.platform.Characteristic.Active)
-      .onSet(this.handleSetActive.bind(this))
-      .onGet(this.handleGetActive.bind(this));
+      .onSet(this.handleSetActive.bind(this));
+    // We don't need this get handler, we'll keep the characteristic in sync using syncActive
+    // .onGet(this.handleGetActive.bind(this));
 
     this.service
       .getCharacteristic(this.platform.Characteristic.RotationSpeed)
@@ -155,12 +157,13 @@ export class FanAccessory {
               minStep: 1,
             },
       )
-      .onSet(this.handleSetRotationSpeed.bind(this))
-      .onGet(this.handleGetRotationSpeed.bind(this));
+      .onSet(this.handleSetRotationSpeed.bind(this));
+    // We don't need this get handler, we'll keep the characteristic in sync using syncRotationSpeed
+    // .onGet(this.handleGetRotationSpeed.bind(this));
 
-    this.service
-      .getCharacteristic(this.platform.Characteristic.CurrentFanState)
-      .onGet(this.handleGetCurrentFanState.bind(this));
+    this.service.getCharacteristic(this.platform.Characteristic.CurrentFanState);
+    // We don't need this get handler, we'll keep the characteristic in sync using syncCurrentFanState
+    // .onGet(this.handleGetCurrentFanState.bind(this));
 
     this.service
       .getCharacteristic(this.platform.Characteristic.Identify)
@@ -232,14 +235,17 @@ export class FanAccessory {
     this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
   }
 
-  setCurrentFanState(rotationSpeed: number): void {
+  syncCurrentFanState(statusPayload: IthoCveStatusSanitizedPayload): void {
+    const currentSpeedStatus: number =
+      statusPayload[SPEED_STATUS_KEY] || statusPayload[REQ_FAN_SPEED_KEY] || 0;
+
     const currentFanStateValue = this.service.getCharacteristic(
       this.platform.Characteristic.CurrentFanState,
     ).value;
 
     const currentFanStateName = this.getCurrentFanStateName((currentFanStateValue || 0) as number);
 
-    if (rotationSpeed === 0) {
+    if (currentSpeedStatus === 0) {
       if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.INACTIVE) {
         this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
         return;
@@ -253,7 +259,7 @@ export class FanAccessory {
       return;
     }
 
-    if (rotationSpeed < ACTIVE_SPEED_THRESHOLD) {
+    if (currentSpeedStatus < ACTIVE_SPEED_THRESHOLD) {
       if (currentFanStateValue === this.platform.Characteristic.CurrentFanState.IDLE) {
         this.log.debug(`CurrentFanState: Already set to: ${currentFanStateName}. Ignoring.`);
         return;
@@ -304,7 +310,7 @@ export class FanAccessory {
   }
 
   getActiveStateByRotationSpeed(rotationSpeed: number): number {
-    return rotationSpeed >= 20
+    return rotationSpeed >= ACTIVE_SPEED_THRESHOLD
       ? this.platform.Characteristic.Active.ACTIVE
       : this.platform.Characteristic.Active.INACTIVE;
   }
@@ -336,7 +342,7 @@ export class FanAccessory {
 
     if (topic === MQTT_STATUS_TOPIC) {
       const sanitizedStatusPayload =
-        sanitizeStatusPayload<IthoStatusSanitizedPayload>(messageString);
+        sanitizeStatusPayload<IthoCveStatusSanitizedPayload>(messageString);
 
       this.handleStatusResponse(sanitizedStatusPayload);
 
@@ -354,19 +360,176 @@ export class FanAccessory {
     }
   }
 
-  handleStatusResponse(statusPayload: IthoStatusSanitizedPayload) {
+  handleStatusResponse(statusPayload: IthoCveStatusSanitizedPayload) {
     this.lastStatusPayload = statusPayload;
     this.lastStatusPayloadTimestamp = Date.now();
 
-    const currentSpeedStatus =
-      statusPayload[SPEED_STATUS_KEY] || statusPayload[REQ_FAN_SPEED_KEY] || 0;
+    // Keep the CurrentFanState characteristic in sync with the real speed of the fan unit.
+    this.syncCurrentFanState(statusPayload);
 
-    this.setCurrentFanState(currentSpeedStatus);
+    // Keep the RotationSpeed in sync with the real speed of the fan unit, where possible.
+    // For example, this is only partial possible when not allowed to control the speed manually.
+    this.syncRotationSpeed(statusPayload);
+
+    // Keep the Active characteristic in sync with the real speed of the fan unit.
+    this.syncActive(statusPayload);
   }
 
   handleSpeedResponse(speed: number) {
     this.lastStatePayload = speed;
     this.lastStatePayloadTimestamp = Date.now();
+  }
+
+  syncActive(statusPayload: IthoCveStatusSanitizedPayload): void {
+    const loggerPrefix = '[Sync Active]';
+
+    if (
+      this.lastManuallySetActiveTimestamp &&
+      Date.now() - this.lastManuallySetActiveTimestamp < SYNC_ROTATION_SPEED_INTERVAL
+    ) {
+      this.log.debug(loggerPrefix, 'Do not sync, last sync was less than 5 seconds ago...');
+      return;
+    }
+
+    const currentActiveValue = this.service.getCharacteristic(
+      this.platform.Characteristic.Active,
+    ).value;
+
+    const activeName = this.getActiveName(currentActiveValue as number);
+
+    const currentSpeedStatus: number = statusPayload[SPEED_STATUS_KEY] || 0;
+
+    const activeStateByRotationSpeed = this.getActiveStateByRotationSpeed(currentSpeedStatus);
+
+    if (activeStateByRotationSpeed === currentActiveValue) {
+      this.log.debug(`${loggerPrefix} Active: Already set to: ${activeName}. Ignoring sync.`);
+      return;
+    }
+
+    const activeStateByRotationSpeedName = this.getActiveName(activeStateByRotationSpeed);
+
+    this.log.debug(`${loggerPrefix} Active: Setting to: ${activeStateByRotationSpeedName}`);
+
+    this.service.updateCharacteristic(
+      this.platform.Characteristic.Active,
+      activeStateByRotationSpeed,
+    );
+  }
+
+  /**
+   * Sync the RotationSpeed characteristic with the real speed of the fan unit.
+   *
+   * When the speed is changed outside of HomeKit, we want to sync the speed in HomeKit.
+   *
+   * This can happen when the fan is controlled by:
+   * - a physical remote control
+   * - by the Itho web interface
+   * - the CO2 sensor
+   * - the humidity sensor
+   * - the built-in timer
+   * - the built-in "auto" mode
+   *
+   * We'll sync the speed every 5 seconds.
+   *
+   * We'll wait 5 seconds to give the fan some time to get up to speed to avoid false positives.
+   *
+   * The sync timer is reset when the speed is changed through HomeKit.
+   */
+  async syncRotationSpeed(statusPayload: IthoCveStatusSanitizedPayload): Promise<void> {
+    const loggerPrefix = '[Sync Rotation Speed]';
+
+    if (
+      this.lastManuallySetRotationSpeedTimestamp &&
+      Date.now() - this.lastManuallySetRotationSpeedTimestamp < SYNC_ROTATION_SPEED_INTERVAL
+    ) {
+      this.log.debug(loggerPrefix, 'Do not sync, last sync was less than 5 seconds ago...');
+      return;
+    }
+
+    const currentRotationSpeed = this.service.getCharacteristic(
+      this.platform.Characteristic.RotationSpeed,
+    ).value;
+
+    // TODO: support non CVE units that do not have this key
+    const speedPercentageRounded = Math.ceil(Number(statusPayload[SPEED_STATUS_KEY])); // a value between 0 and 50
+
+    this.log.debug(loggerPrefix, `Speed Status is: ${speedPercentageRounded}`);
+
+    if (!this.allowsManualSpeedControl) {
+      // The unit does not allow manual speed control
+
+      // TODO: support non-cve devices with other key
+
+      const fanInfo = statusPayload?.[FAN_INFO_KEY];
+
+      if (isNil(fanInfo)) {
+        this.log.warn(loggerPrefix, `${FAN_INFO_KEY} property not found, ignoring.`);
+
+        return;
+      }
+
+      this.log.debug(loggerPrefix, `FanInfo is: ${fanInfo}`);
+
+      // FanInfo is low, medium/auto or high
+
+      // If the rotation speed is already set, we can ignore the sync
+      if (currentRotationSpeed === speedPercentageRounded) {
+        this.log.debug(
+          loggerPrefix,
+          `RotationSpeed already set to ${speedPercentageRounded}. Ignoring sync.`,
+        );
+        return;
+      }
+
+      // If FanInfo is medium/auto or high, but the speed percentage we received is 100 or 0, we should just sync to that exact rotation speed
+      if (speedPercentageRounded === 100 || speedPercentageRounded === 0) {
+        this.log.info(loggerPrefix, `Syncing RotationSpeed to: ${speedPercentageRounded}`);
+
+        this.service.updateCharacteristic(
+          this.platform.Characteristic.RotationSpeed,
+          speedPercentageRounded,
+        );
+
+        return;
+      }
+
+      // FanInfo is medium/auto or high, but the speed percentage is not 100 or 0
+
+      // Because we can't manually control the speed from 0 - 100, we should determine the speed from the FanInfo mapping
+      const mappedRotationSpeed = getMappedRotationSpeedFromFanInfo(fanInfo);
+
+      // If already set, we can ignore
+      if (currentRotationSpeed === mappedRotationSpeed) {
+        this.log.debug(
+          loggerPrefix,
+          `RotationSpeed already set to mapped rotation speed ${mappedRotationSpeed} (${fanInfo}). Ignoring sync.`,
+        );
+        return;
+      }
+
+      this.log.debug(
+        loggerPrefix,
+        `Syncing RotationSpeed to mapped rotation speed: ${mappedRotationSpeed} (${fanInfo})`,
+      );
+
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.RotationSpeed,
+        mappedRotationSpeed,
+      );
+
+      return;
+    }
+
+    // TODO: when we end up here, the user has full manual control (0 - 100) in HomeKit, should we keep sync with itho/state instead?
+
+    this.log.info(loggerPrefix, `Syncing rotation speed to: ${speedPercentageRounded}`);
+
+    this.service.updateCharacteristic(
+      this.platform.Characteristic.RotationSpeed,
+      speedPercentageRounded,
+    );
+
+    this.log.debug(loggerPrefix, `Waiting for next sync interval...`);
   }
 
   /**
@@ -378,6 +541,10 @@ export class FanAccessory {
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
    */
   handleSetRotationSpeed(value: CharacteristicValue): void {
+    // Reset sync timer when the user manually changes the speed, or an automation changes it
+    this.lastManuallySetActiveTimestamp = Date.now();
+    this.lastManuallySetRotationSpeedTimestamp = Date.now();
+
     const speedValue = Number(value);
 
     // A range between 0-254
@@ -387,8 +554,6 @@ export class FanAccessory {
       this.log.error(`RotationSpeed: Value is not a number: ${speedValue}`);
       return;
     }
-
-    this.log.info(`Setting RotationSpeed to ${speedValue}/${MAX_ROTATION_SPEED}`);
 
     if (!this.allowsManualSpeedControl) {
       this.sendVirtualRemoteCommand(speedValue);
@@ -411,6 +576,10 @@ export class FanAccessory {
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
    */
   handleSetActive(value: CharacteristicValue): void {
+    // Reset sync timers when the user manually changes the active state, or an automation changes it
+    this.lastManuallySetActiveTimestamp = Date.now();
+    this.lastManuallySetRotationSpeedTimestamp = Date.now();
+
     const currentActiveValue = this.service.getCharacteristic(
       this.platform.Characteristic.Active,
     ).value;
@@ -429,7 +598,7 @@ export class FanAccessory {
     const activate = value === this.platform.Characteristic.Active.ACTIVE;
 
     // A rotation speed of 0 will turn the fan off
-    // A rotation speed of 20 will turn the fan on
+    // A rotation speed of 20 (ACTIVE_SPEED_THRESHOLD) will turn the fan on
     const speedValue = activate ? ACTIVE_SPEED_THRESHOLD : 0;
 
     this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
@@ -460,94 +629,96 @@ export class FanAccessory {
    * @example
    * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
    */
-  handleGetActive(): Nullable<CharacteristicValue> {
-    const rotationSpeed = this.service.getCharacteristic(
-      this.platform.Characteristic.RotationSpeed,
-    ).value;
+  // handleGetActive(): Nullable<CharacteristicValue> {
+  //   const rotationSpeed = this.service.getCharacteristic(
+  //     this.platform.Characteristic.RotationSpeed,
+  //   ).value;
 
-    if (isNil(rotationSpeed)) {
-      this.log.warn('RotationSpeed is not set yet, returning "inactive"');
-      return this.platform.Characteristic.Active.INACTIVE;
-    }
+  //   if (isNil(rotationSpeed)) {
+  //     this.log.warn('RotationSpeed is not set yet, returning "inactive"');
+  //     return this.platform.Characteristic.Active.INACTIVE;
+  //   }
 
-    const currentValue =
-      rotationSpeed > 0
-        ? this.platform.Characteristic.Active.ACTIVE
-        : this.platform.Characteristic.Active.INACTIVE;
+  //   const currentValue =
+  //     rotationSpeed > 0
+  //       ? this.platform.Characteristic.Active.ACTIVE
+  //       : this.platform.Characteristic.Active.INACTIVE;
 
-    // const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
+  //   // const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
 
-    const activeName = this.getActiveName(currentValue as number);
+  //   const activeName = this.getActiveName(currentValue as number);
 
-    this.log.info(`Active is ${activeName} (${currentValue})`);
+  //   this.log.info(`Active is ${activeName} (${currentValue})`);
 
-    return currentValue;
-  }
+  //   return currentValue;
+  // }
 
-  async handleGetRotationSpeed(): Promise<Nullable<CharacteristicValue>> {
-    if (!this.allowsManualSpeedControl) {
-      // non-cve devices
-      // https://github.com/arjenhiemstra/ithowifi/wiki/Non-CVE-units-support#how-to-control-the-speed
-      if (this.config.device?.nonCve) {
-        const actualMode = this.lastStatusPayload?.[ACTUAL_MODE_KEY];
+  // async handleGetRotationSpeed(): Promise<Nullable<CharacteristicValue>> {
+  //   if (!this.allowsManualSpeedControl) {
+  //     // non-cve devices
+  //     // https://github.com/arjenhiemstra/ithowifi/wiki/Non-CVE-units-support#how-to-control-the-speed
+  //     if (this.config.device?.nonCve) {
+  //       const actualMode = this.lastStatusPayload?.[ACTUAL_MODE_KEY];
 
-        if (!actualMode) {
-          this.log.warn(`${ACTUAL_MODE_KEY} property not found, returning 0 as RotationSpeed.`);
+  //       if (!actualMode) {
+  //         this.log.warn(`${ACTUAL_MODE_KEY} property not found, returning 0 as RotationSpeed.`);
 
-          return 0;
-        }
+  //         return 0;
+  //       }
 
-        const rotationSpeed = getRotationSpeedFromActualMode(actualMode);
+  //       const mappedRotationSpeed = getMappedRotationSpeedFromActualMode(actualMode);
 
-        this.log.info(`RotationSpeed is ${rotationSpeed}/${MAX_ROTATION_SPEED} (${actualMode})`);
+  //       this.log.info(
+  //         `RotationSpeed is ${mappedRotationSpeed}/${MAX_ROTATION_SPEED} (${actualMode})`,
+  //       );
 
-        return rotationSpeed;
-      }
+  //       return mappedRotationSpeed;
+  //     }
 
-      // cve device with co2 sensor
-      if (this.config.device?.co2Sensor) {
-        const fanInfo = this.lastStatusPayload?.[FAN_INFO_KEY];
+  //     // cve device with co2 sensor
+  //     if (this.config.device?.co2Sensor) {
+  //       const fanInfo = this.lastStatusPayload?.[FAN_INFO_KEY];
 
-        if (!fanInfo) {
-          this.log.warn(`${FAN_INFO_KEY} property not found, returning 0 as RotationSpeed.`);
+  //       if (!fanInfo) {
+  //         this.log.warn(`${FAN_INFO_KEY} property not found, returning 0 as RotationSpeed.`);
 
-          return 0;
-        }
+  //         return 0;
+  //       }
 
-        const rotationSpeed = getRotationSpeedFromFanInfo(fanInfo);
+  //       const mappedRotationSpeed = getMappedRotationSpeedFromFanInfo(fanInfo);
 
-        this.log.info(`RotationSpeed is ${rotationSpeed}/${MAX_ROTATION_SPEED} (${fanInfo})`);
+  //       this.log.info(`RotationSpeed is ${mappedRotationSpeed}/${MAX_ROTATION_SPEED} (${fanInfo})`);
 
-        return rotationSpeed;
-      }
-    }
+  //       return mappedRotationSpeed;
+  //     }
+  //   }
 
-    let rotationSpeedNumber: number;
+  //   let rotationSpeedNumber: number;
 
-    if (this.mqttApiClient) {
-      rotationSpeedNumber = this.lastStatePayload || 0;
-    } else {
-      rotationSpeedNumber = await this.httpApiClient.getSpeed();
-    }
+  //   if (this.mqttApiClient) {
+  //     rotationSpeedNumber = this.lastStatePayload || 0;
+  //   } else {
+  //     rotationSpeedNumber = await this.httpApiClient.getSpeed();
+  //   }
 
-    const rotationSpeed = Math.round(Number(rotationSpeedNumber) / 2.54);
+  //   const rotationSpeed = Math.round(Number(rotationSpeedNumber) / 2.54);
 
-    this.log.info(`RotationSpeed is ${rotationSpeed}/${MAX_ROTATION_SPEED}`);
+  //   this.log.info(`RotationSpeed is ${rotationSpeed}/${MAX_ROTATION_SPEED}`);
 
-    return rotationSpeed;
-  }
+  //   return rotationSpeed;
+  // }
 
-  handleGetCurrentFanState(): Nullable<CharacteristicValue> {
-    const currentValue = this.service.getCharacteristic(
-      this.platform.Characteristic.CurrentFanState,
-    ).value;
+  // handleGetCurrentFanState(): Nullable<CharacteristicValue> {
+  //   const currentValue = this.service.getCharacteristic(
+  //     this.platform.Characteristic.CurrentFanState,
+  //   ).value;
 
-    const currentFanStateName = this.getCurrentFanStateName(currentValue as number);
+  //   const currentFanStateName = this.getCurrentFanStateName(currentValue as number);
 
-    this.log.debug(`CurrentFanState is ${currentFanStateName} (${currentValue})`);
+  //   this.log.debug(`CurrentFanState is ${currentFanStateName} (${currentValue})`);
 
-    return currentValue;
-  }
+  //   return currentValue;
+  // }
 
   handleGetIdentify(): Nullable<CharacteristicValue> {
     this.log.warn('Identify feature not supported.');
