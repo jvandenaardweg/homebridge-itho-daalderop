@@ -233,7 +233,7 @@ export class HomebridgeIthoDaalderop implements DynamicPlatformPlugin {
   ): void {
     this.log.debug(
       this.loggerPrefix,
-      'Attaching air qualoty sensor accessory to platform:',
+      'Attaching air quality sensor accessory to platform:',
       accessory.displayName,
     );
 

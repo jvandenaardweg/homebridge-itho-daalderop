@@ -1,4 +1,11 @@
-import { Service, PlatformAccessory, CharacteristicValue, Nullable } from 'homebridge';
+import {
+  Service,
+  PlatformAccessory,
+  CharacteristicValue,
+  Nullable,
+  PartialAllowingNull,
+  CharacteristicProps,
+} from 'homebridge';
 
 import { HomebridgeIthoDaalderop } from '@/platform';
 import { IthoDaalderopAccessoryContext, IthoCveStatusSanitizedPayload } from './types';
@@ -23,8 +30,10 @@ import { HttpApi } from './api/http';
 import { MqttApi } from './api/mqtt';
 import { serialNumberFromUUID } from './utils/serial';
 import { PLUGIN_VERSION } from './version';
+import { debounce } from './utils/debounce';
 
 const SYNC_ROTATION_SPEED_INTERVAL = 5000; // 5 seconds
+const DEFAULT_DEBOUNCE_INTERVAL = 500; // 500ms
 
 /**
  * Platform Accessory
@@ -43,6 +52,8 @@ export class FanAccessory {
   private lastStatePayloadTimestamp: Nullable<number> = null;
   private lastManuallySetRotationSpeedTimestamp: Nullable<number> = null;
   private lastManuallySetActiveTimestamp: Nullable<number> = null;
+
+  private rotationSpeedProps: PartialAllowingNull<CharacteristicProps>;
 
   constructor(
     private readonly platform: HomebridgeIthoDaalderop,
@@ -130,34 +141,36 @@ export class FanAccessory {
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.displayName);
 
     // Set the fan active as default
-    this.service.setCharacteristic(
-      this.platform.Characteristic.Active,
-      this.platform.Characteristic.Active.ACTIVE,
-    );
+    // this.service.setCharacteristic(
+    //   this.platform.Characteristic.Active,
+    //   this.platform.Characteristic.Active.ACTIVE,
+    // );
 
     this.service
       .getCharacteristic(this.platform.Characteristic.Active)
-      .onSet(this.handleSetActive.bind(this));
-    // We don't need this get handler, we'll keep the characteristic in sync using syncActive
+      // Debounce the setter, because this active characteristic also triggered when the rotation speed is changed
+      .onSet(debounce(this.handleSetActive.bind(this), DEFAULT_DEBOUNCE_INTERVAL));
+    // We don't need this get handler, we'll keep the characteristic in sync using syncCharacteristicsByRotationSpeed
     // .onGet(this.handleGetActive.bind(this));
+
+    // If the device has a CO2 or the device is a non-CVE device, we'll use 3 steps (low, medium high), otherwise 100 (0 - 100%)
+    this.rotationSpeedProps = !this.allowsManualSpeedControl
+      ? {
+          minValue: 0,
+          maxValue: 100,
+          minStep: 100 / 3, // TODO: find a better way to do this, 33% is not really "low", as "low" is 0% on the device
+        }
+      : {
+          minValue: 0,
+          maxValue: 100,
+          minStep: 1,
+        };
 
     this.service
       .getCharacteristic(this.platform.Characteristic.RotationSpeed)
-      // If the device has a CO2 or the device is a non-CVE device, we'll use 3 steps (low, medium high), otherwise 100 (0 - 100%)
-      .setProps(
-        !this.allowsManualSpeedControl
-          ? {
-              minValue: 0,
-              maxValue: 100,
-              minStep: 100 / 3, // TODO: find a better way to do this, 33% is not really "low", as "low" is 0% on the device
-            }
-          : {
-              minValue: 0,
-              maxValue: 100,
-              minStep: 1,
-            },
-      )
-      .onSet(this.handleSetRotationSpeed.bind(this));
+      .setProps(this.rotationSpeedProps)
+      // Debounce the set handler to prevent spamming the with requests because the interface is a slider
+      .onSet(debounce(this.handleSetRotationSpeed.bind(this), DEFAULT_DEBOUNCE_INTERVAL));
     // We don't need this get handler, we'll keep the characteristic in sync using syncRotationSpeed
     // .onGet(this.handleGetRotationSpeed.bind(this));
 
@@ -225,8 +238,10 @@ export class FanAccessory {
   setActive(value: number): void {
     const currentValue = this.service.getCharacteristic(this.platform.Characteristic.Active).value;
 
+    const activeName = this.getActiveName(value as number);
+
     if (currentValue === value) {
-      this.log.debug(`Active: Already set to: ${value}. Ignoring.`);
+      this.log.debug(`Active: Already set to: ${value} (${activeName}). Ignoring.`);
       return;
     }
 
@@ -338,6 +353,14 @@ export class FanAccessory {
   }
 
   handleMqttMessage(topic: string, message: Buffer): void {
+    if (
+      this.lastManuallySetRotationSpeedTimestamp &&
+      Date.now() - this.lastManuallySetRotationSpeedTimestamp < SYNC_ROTATION_SPEED_INTERVAL
+    ) {
+      this.log.debug('Do not sync, last sync was less than 5 seconds ago...');
+      return;
+    }
+
     const messageString = message.toString();
 
     if (topic === MQTT_STATUS_TOPIC) {
@@ -365,14 +388,14 @@ export class FanAccessory {
     this.lastStatusPayloadTimestamp = Date.now();
 
     // Keep the CurrentFanState characteristic in sync with the real speed of the fan unit.
-    this.syncCurrentFanState(statusPayload);
+    // this.syncCurrentFanState(statusPayload);
 
     // Keep the RotationSpeed in sync with the real speed of the fan unit, where possible.
     // For example, this is only partial possible when not allowed to control the speed manually.
-    this.syncRotationSpeed(statusPayload);
+    // this.syncRotationSpeed(statusPayload);
 
     // Keep the Active characteristic in sync with the real speed of the fan unit.
-    this.syncActive(statusPayload);
+    // this.syncActive(statusPayload);
   }
 
   handleSpeedResponse(speed: number) {
@@ -398,21 +421,39 @@ export class FanAccessory {
     const activeName = this.getActiveName(currentActiveValue as number);
 
     const currentSpeedStatus: number = statusPayload[SPEED_STATUS_KEY] || 0;
+    const fanInfo = statusPayload[FAN_INFO_KEY];
 
-    const activeStateByRotationSpeed = this.getActiveStateByRotationSpeed(currentSpeedStatus);
+    if (fanInfo !== 'medium' && fanInfo !== 'auto') {
+      const activeStateByRotationSpeed = this.getActiveStateByRotationSpeed(currentSpeedStatus);
 
-    if (activeStateByRotationSpeed === currentActiveValue) {
+      if (activeStateByRotationSpeed === currentActiveValue) {
+        this.log.debug(`${loggerPrefix} Active: Already set to: ${activeName}. Ignoring sync.`);
+        return;
+      }
+
+      const activeStateByRotationSpeedName = this.getActiveName(activeStateByRotationSpeed);
+
+      this.log.debug(`${loggerPrefix} Active: Setting to: ${activeStateByRotationSpeedName}`);
+
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.Active,
+        activeStateByRotationSpeed,
+      );
+
+      return;
+    }
+
+    if (currentActiveValue === this.platform.Characteristic.Active.ACTIVE) {
       this.log.debug(`${loggerPrefix} Active: Already set to: ${activeName}. Ignoring sync.`);
       return;
     }
 
-    const activeStateByRotationSpeedName = this.getActiveName(activeStateByRotationSpeed);
+    this.log.debug(`${loggerPrefix} Active: Setting to: ACTIVE`);
 
-    this.log.debug(`${loggerPrefix} Active: Setting to: ${activeStateByRotationSpeedName}`);
-
+    // FanInfo is medium or auto, always set to active.
     this.service.updateCharacteristic(
       this.platform.Characteristic.Active,
-      activeStateByRotationSpeed,
+      this.platform.Characteristic.Active.ACTIVE,
     );
   }
 
@@ -540,32 +581,118 @@ export class FanAccessory {
    * Do not return anything from this method. Otherwise we'll get this error:
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
    */
-  handleSetRotationSpeed(value: CharacteristicValue): void {
+  handleSetRotationSpeed(rotationSpeed: CharacteristicValue): void {
     // Reset sync timer when the user manually changes the speed, or an automation changes it
     this.lastManuallySetActiveTimestamp = Date.now();
     this.lastManuallySetRotationSpeedTimestamp = Date.now();
 
-    const speedValue = Number(value);
+    const rotationSpeedNumber = Number(rotationSpeed);
 
     // A range between 0-254
-    const speedValueToSet = Math.round(speedValue * 2.54);
-
-    if (isNaN(speedValueToSet)) {
-      this.log.error(`RotationSpeed: Value is not a number: ${speedValue}`);
-      return;
-    }
+    const speedValueToSet = Math.round(rotationSpeedNumber * 2.54);
 
     if (!this.allowsManualSpeedControl) {
-      this.sendVirtualRemoteCommand(speedValue);
+      const virtualRemoteCommand = getVirtualRemoteCommandForRotationSpeed(rotationSpeedNumber);
+
+      this.syncCharacteristicsByRotationSpeed(rotationSpeedNumber, virtualRemoteCommand);
+
+      this.sendVirtualRemoteCommand(rotationSpeedNumber);
 
       return;
     }
+
+    this.syncCharacteristicsByRotationSpeed(rotationSpeedNumber);
 
     if (this.mqttApiClient) {
       this.mqttApiClient.setSpeed(speedValueToSet);
     } else {
       this.httpApiClient.setSpeed(speedValueToSet);
     }
+  }
+
+  /**
+   * Method that syncs all the Characteristics based on RotationSpeed.
+   *
+   * This allows us to properly keep track of the RotationSpeed, CurrentFanState and Active characteristics
+   * for both virtual remote commands and manual speed control.
+   */
+  syncCharacteristicsByRotationSpeed(
+    rotationSpeed: number,
+    virtualRemoteCommand?: 'low' | 'medium' | 'high',
+  ): void {
+    // Always update the RotationSpeed characteristic
+    this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, rotationSpeed);
+
+    // When the RotationSpeed is 0, we should set the CurrentFanState to INACTIVE and Active to INACTIVE
+    if (rotationSpeed === 0) {
+      const currentFanState = this.platform.Characteristic.CurrentFanState.INACTIVE;
+      const active = this.platform.Characteristic.Active.INACTIVE;
+      const currentFanStateName = this.getCurrentFanStateName(currentFanState);
+      const activeName = this.getActiveName(active);
+
+      // Keep CurrentFanState in sync when changing RotationSpeed
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.CurrentFanState,
+        currentFanState,
+      );
+
+      // Keep Active in sync when changing RotationSpeed
+      this.service.updateCharacteristic(this.platform.Characteristic.Active, active);
+
+      this.log.debug(
+        `Syncing RotationSpeed to ${rotationSpeed}, CurrentFanState to ${currentFanStateName} and Active to ${activeName}`,
+      );
+
+      return;
+    }
+
+    // When the RotationSpeed is between 0 and 20, or virtual remote command is "low", we should set the CurrentFanState to IDLE and Active to ACTIVE
+    if (
+      (rotationSpeed > 0 && rotationSpeed <= ACTIVE_SPEED_THRESHOLD) ||
+      virtualRemoteCommand === 'low'
+    ) {
+      // RotationSpeed is between 0 and 20 OR virtualRemoteCommand is low
+
+      const currentFanState = this.platform.Characteristic.CurrentFanState.IDLE;
+      const active = this.platform.Characteristic.Active.ACTIVE;
+      const currentFanStateName = this.getCurrentFanStateName(currentFanState);
+      const activeName = this.getActiveName(active);
+
+      // Keep CurrentFanState in sync when changing RotationSpeed
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.CurrentFanState,
+        currentFanState,
+      );
+
+      // Keep Active in sync when changing RotationSpeed
+      this.service.updateCharacteristic(this.platform.Characteristic.Active, active);
+
+      this.log.debug(
+        `Syncing RotationSpeed to ${rotationSpeed}, CurrentFanState to ${currentFanStateName} and Active to ${activeName}`,
+      );
+
+      return;
+    }
+
+    // RotationSpeed is between 20 and 100, and/or virtualRemoteCommand is medium or high
+
+    const currentFanState = this.platform.Characteristic.CurrentFanState.BLOWING_AIR;
+    const active = this.platform.Characteristic.Active.ACTIVE;
+    const currentFanStateName = this.getCurrentFanStateName(currentFanState);
+    const activeName = this.getActiveName(active);
+
+    // Keep CurrentFanState in sync when changing RotationSpeed
+    this.service.updateCharacteristic(
+      this.platform.Characteristic.CurrentFanState,
+      currentFanState,
+    );
+
+    // Keep Active in sync when changing RotationSpeed
+    this.service.updateCharacteristic(this.platform.Characteristic.Active, active);
+
+    this.log.debug(
+      `Syncing RotationSpeed to ${rotationSpeed}, CurrentFanState to ${currentFanStateName} and Active to ${activeName}`,
+    );
   }
 
   /**
@@ -576,44 +703,61 @@ export class FanAccessory {
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
    */
   handleSetActive(value: CharacteristicValue): void {
+    const currentRotationSpeed = this.service.getCharacteristic(
+      this.platform.Characteristic.RotationSpeed,
+    ).value as number;
+
+    const activeName = this.getActiveName(value as number);
+
+    this.log.debug(`Active: Set to ${activeName}`);
+
     // Reset sync timers when the user manually changes the active state, or an automation changes it
     this.lastManuallySetActiveTimestamp = Date.now();
     this.lastManuallySetRotationSpeedTimestamp = Date.now();
 
-    const currentActiveValue = this.service.getCharacteristic(
-      this.platform.Characteristic.Active,
-    ).value;
-
-    const activeName = this.getActiveName(value as number);
-
-    if (currentActiveValue === value) {
-      this.log.debug(`Active: Already set to ${activeName}. Ignoring.`);
-
-      return;
-    }
-
-    this.log.info(`Active: Setting to: ${value} (was: ${currentActiveValue})`);
-
-    // If value to set is 1 (ACTIVE), then we need to set the fan as active
     const activate = value === this.platform.Characteristic.Active.ACTIVE;
+    const deactivate = value === this.platform.Characteristic.Active.INACTIVE;
 
-    // A rotation speed of 0 will turn the fan off
-    // A rotation speed of 20 (ACTIVE_SPEED_THRESHOLD) will turn the fan on
-    const speedValue = activate ? ACTIVE_SPEED_THRESHOLD : 0;
-
-    this.service.updateCharacteristic(this.platform.Characteristic.Active, value);
+    // The HomeKit RotationSpeed slider also acts as a Active/Inactive switch, so we need to handle that here
+    // When there's already a RotationSpeed registered (Home App slider), we'll use that value to set the speed
+    // Otherwise, we'll use the default speed threshold to set the speed
+    // When we "deactivate" the speedValue is 0. We need to put the fan in low mode.
+    const rotationSpeedValueToSet = activate
+      ? currentRotationSpeed
+        ? currentRotationSpeed
+        : ACTIVE_SPEED_THRESHOLD
+      : 0;
 
     if (!this.allowsManualSpeedControl) {
-      this.sendVirtualRemoteCommand(speedValue);
+      // When we "activate" the speedValue is higher than 0. We need to put the fan in medium mode
+      // The downside of also doing this here, is that we'll send a command to the fan twice when the user manually changes the speed. But we can live with that.
+      this.sendVirtualRemoteCommand(rotationSpeedValueToSet);
+
+      // Set as inactive
+      if (deactivate) {
+        const rotationSpeed = 0;
+
+        this.syncCharacteristicsByRotationSpeed(rotationSpeed);
+
+        return;
+      }
+
+      if (activate) {
+        const virtualRemoteCommand = getVirtualRemoteCommandForRotationSpeed(
+          currentRotationSpeed as number,
+        );
+        const mappedRotationSpeed = getMappedRotationSpeedFromFanInfo(virtualRemoteCommand);
+
+        this.syncCharacteristicsByRotationSpeed(mappedRotationSpeed, virtualRemoteCommand);
+
+        return;
+      }
 
       return;
     }
 
-    if (this.mqttApiClient) {
-      this.mqttApiClient.setSpeed(speedValue);
-    } else {
-      this.httpApiClient.setSpeed(speedValue);
-    }
+    // TODO: handle manual speed control, test this
+    this.syncCharacteristicsByRotationSpeed(rotationSpeedValueToSet);
   }
 
   /**
@@ -640,7 +784,7 @@ export class FanAccessory {
   //   }
 
   //   const currentValue =
-  //     rotationSpeed > 0
+  //     rotationSpeed > ACTIVE_SPEED_THRESHOLD
   //       ? this.platform.Characteristic.Active.ACTIVE
   //       : this.platform.Characteristic.Active.INACTIVE;
 

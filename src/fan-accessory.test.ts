@@ -37,6 +37,42 @@ describe('FanAccessory', () => {
     expect(fanAccessory['accessory'].displayName).toBe(DEFAULT_FAN_NAME);
   });
 
+  describe('rotationSpeedProps', () => {
+    it('should return the correct rotation speed props when there is no co2Sensor config property', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, {
+        ...configMockWithCO2Sensor,
+        device: {
+          co2Sensor: false,
+        },
+      });
+
+      const expected = {
+        minValue: 0,
+        maxValue: 100,
+        minStep: 1,
+      };
+
+      expect(fanAccessory['rotationSpeedProps']).toEqual(expected);
+    });
+
+    it('should return the correct rotation speed props when there is a co2Sensor config property', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, {
+        ...configMockWithCO2Sensor,
+        device: {
+          co2Sensor: true,
+        },
+      });
+
+      const expected = {
+        minValue: 0,
+        maxValue: 100,
+        minStep: 33.333333333333336,
+      };
+
+      expect(fanAccessory['rotationSpeedProps']).toEqual(expected);
+    });
+  });
+
   describe('allowsManualSpeedControl', () => {
     it('should return false when config options device.co2Sensor is true', () => {
       const fanAccessory = new FanAccessory(platformMock, accessoryMock, {
@@ -607,6 +643,174 @@ describe('FanAccessory', () => {
       expect(updateCharacteristicSpy).not.toHaveBeenCalledWith(
         platformMock.Characteristic.RotationSpeed,
         expectedRotationSpeed,
+      );
+    });
+  });
+
+  describe('syncCharacteristicsByRotationSpeed()', () => {
+    it('should set the correct characteristics when RotationSpeed is 0', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMockWithCO2Sensor);
+
+      const mockRotationSpeed = 0;
+
+      const updateCharacteristicSpy = vi.fn();
+
+      fanAccessory['service'].updateCharacteristic = updateCharacteristicSpy;
+
+      fanAccessory['syncCharacteristicsByRotationSpeed'](mockRotationSpeed);
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.RotationSpeed,
+        mockRotationSpeed,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.CurrentFanState,
+        platformMock.Characteristic.CurrentFanState.INACTIVE,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.Active,
+        platformMock.Characteristic.Active.INACTIVE,
+      );
+    });
+
+    it('should set the correct characteristics when RotationSpeed is 15', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMockWithCO2Sensor);
+
+      const mockRotationSpeed = 15;
+
+      const updateCharacteristicSpy = vi.fn();
+
+      fanAccessory['service'].updateCharacteristic = updateCharacteristicSpy;
+
+      fanAccessory['syncCharacteristicsByRotationSpeed'](mockRotationSpeed);
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.RotationSpeed,
+        mockRotationSpeed,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.CurrentFanState,
+        platformMock.Characteristic.CurrentFanState.IDLE,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.Active,
+        platformMock.Characteristic.Active.ACTIVE,
+      );
+    });
+
+    it('should set the correct characteristics when RotationSpeed is 20', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMockWithCO2Sensor);
+
+      const mockRotationSpeed = 20;
+
+      const updateCharacteristicSpy = vi.fn();
+
+      fanAccessory['service'].updateCharacteristic = updateCharacteristicSpy;
+
+      fanAccessory['syncCharacteristicsByRotationSpeed'](mockRotationSpeed);
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.RotationSpeed,
+        mockRotationSpeed,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.CurrentFanState,
+        platformMock.Characteristic.CurrentFanState.IDLE,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.Active,
+        platformMock.Characteristic.Active.ACTIVE,
+      );
+    });
+
+    it('should set the correct characteristics when RotationSpeed is higher than ACTIVE_SPEED_THRESHOLD', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMockWithCO2Sensor);
+
+      const mockRotationSpeed = ACTIVE_SPEED_THRESHOLD + 1;
+
+      const updateCharacteristicSpy = vi.fn();
+
+      fanAccessory['service'].updateCharacteristic = updateCharacteristicSpy;
+
+      fanAccessory['syncCharacteristicsByRotationSpeed'](mockRotationSpeed);
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.RotationSpeed,
+        mockRotationSpeed,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.CurrentFanState,
+        platformMock.Characteristic.CurrentFanState.BLOWING_AIR,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.Active,
+        platformMock.Characteristic.Active.ACTIVE,
+      );
+    });
+
+    it('should set the correct characteristics when RotationSpeed is higher than ACTIVE_SPEED_THRESHOLD but virtual remote command is "low"', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMockWithCO2Sensor);
+
+      const mockRotationSpeed = ACTIVE_SPEED_THRESHOLD + 1;
+      const mockVirtualRemoteCommand = 'low';
+
+      const updateCharacteristicSpy = vi.fn();
+
+      fanAccessory['service'].updateCharacteristic = updateCharacteristicSpy;
+
+      fanAccessory['syncCharacteristicsByRotationSpeed'](
+        mockRotationSpeed,
+        mockVirtualRemoteCommand,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.RotationSpeed,
+        mockRotationSpeed,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.CurrentFanState,
+        platformMock.Characteristic.CurrentFanState.IDLE,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.Active,
+        platformMock.Characteristic.Active.ACTIVE,
+      );
+    });
+
+    it('should set the correct characteristics when RotationSpeed is 100', () => {
+      const fanAccessory = new FanAccessory(platformMock, accessoryMock, configMockWithCO2Sensor);
+
+      const mockRotationSpeed = 100;
+
+      const updateCharacteristicSpy = vi.fn();
+
+      fanAccessory['service'].updateCharacteristic = updateCharacteristicSpy;
+
+      fanAccessory['syncCharacteristicsByRotationSpeed'](mockRotationSpeed);
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.RotationSpeed,
+        mockRotationSpeed,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.CurrentFanState,
+        platformMock.Characteristic.CurrentFanState.BLOWING_AIR,
+      );
+
+      expect(updateCharacteristicSpy).toHaveBeenCalledWith(
+        platformMock.Characteristic.Active,
+        platformMock.Characteristic.Active.ACTIVE,
       );
     });
   });

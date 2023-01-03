@@ -111,13 +111,11 @@ export class AirQualitySensorAccessory {
     // Set the service name, this is what is displayed as the default name on the Home app
     this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.displayName);
 
-    this.service
-      .getCharacteristic(this.platform.Characteristic.AirQuality)
-      .onGet(this.handleGetAirQuality.bind(this));
+    this.service.getCharacteristic(this.platform.Characteristic.AirQuality);
+    // .onGet(this.handleGetAirQuality.bind(this));
 
-    this.service
-      .getCharacteristic(this.platform.Characteristic.StatusActive)
-      .onGet(this.handleGetStatusActive.bind(this));
+    this.service.getCharacteristic(this.platform.Characteristic.StatusActive);
+    // .onGet(this.handleGetStatusActive.bind(this));
 
     this.service
       .getCharacteristic(this.platform.Characteristic.Identify)
@@ -242,9 +240,9 @@ export class AirQualitySensorAccessory {
   }
 
   handleMqttMessage(topic: string, message: Buffer): void {
-    this.log.debug(`Received new status payload: ${message.toString()}`);
-
     if (topic === MQTT_STATUS_TOPIC) {
+      this.log.debug(`Received new status payload: ${message.toString()}`);
+
       const messageString = message.toString();
 
       const sanitizedStatusPayload =
@@ -286,27 +284,27 @@ export class AirQualitySensorAccessory {
    * @example
    * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
    */
-  async handleGetAirQuality(): Promise<Nullable<CharacteristicValue>> {
-    const currentValue = this.service.getCharacteristic(
-      this.platform.Characteristic.AirQuality,
-    ).value;
+  // async handleGetAirQuality(): Promise<Nullable<CharacteristicValue>> {
+  //   const currentValue = this.service.getCharacteristic(
+  //     this.platform.Characteristic.AirQuality,
+  //   ).value;
 
-    const airQualityName = this.getAirQualityName(currentValue as number);
+  //   const airQualityName = this.getAirQualityName(currentValue as number);
 
-    this.log.info(`AirQuality is ${airQualityName} (${currentValue})`);
+  //   this.log.info(`AirQuality is ${airQualityName} (${currentValue})`);
 
-    return Promise.resolve(currentValue);
-  }
+  //   return Promise.resolve(currentValue);
+  // }
 
-  async handleGetStatusActive(): Promise<Nullable<CharacteristicValue>> {
-    const currentValue = this.service.getCharacteristic(
-      this.platform.Characteristic.StatusActive,
-    ).value;
+  // async handleGetStatusActive(): Promise<Nullable<CharacteristicValue>> {
+  //   const currentValue = this.service.getCharacteristic(
+  //     this.platform.Characteristic.StatusActive,
+  //   ).value;
 
-    this.log.info(`StatusActive is ${currentValue ? 'ACTIVE' : 'INACTIVE'} (${currentValue})`);
+  //   this.log.info(`StatusActive is ${currentValue ? 'ACTIVE' : 'INACTIVE'} (${currentValue})`);
 
-    return currentValue;
-  }
+  //   return currentValue;
+  // }
 
   handleGetIdentify(): Nullable<CharacteristicValue> {
     this.log.warn('Identify feature not supported.');
