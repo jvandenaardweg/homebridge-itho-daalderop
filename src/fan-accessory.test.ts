@@ -1,28 +1,10 @@
 import { Characteristic } from 'hap-nodejs';
-import { ConfigSchema } from './config.schema';
 import { FanAccessory } from './fan-accessory';
 import { mockSanitizedStatusPayload } from './mocks/api-payloads';
+import { configMockWithCO2Sensor } from './mocks/config';
 import { accessoryMock, platformMock } from './mocks/platform';
-import {
-  PLATFORM_NAME,
-  DEFAULT_BRIDGE_NAME,
-  DEFAULT_FAN_NAME,
-  ACTIVE_SPEED_THRESHOLD,
-} from './settings';
+import { DEFAULT_FAN_NAME, ACTIVE_SPEED_THRESHOLD } from './settings';
 import { FanInfo, IthoCveStatusSanitizedPayload } from './types';
-
-const configMockWithCO2Sensor: ConfigSchema = {
-  platform: PLATFORM_NAME,
-  name: DEFAULT_BRIDGE_NAME,
-  api: {
-    ip: '192.168.0.10',
-    port: 1883,
-    protocol: 'mqtt',
-  },
-  device: {
-    co2Sensor: true,
-  },
-};
 
 describe('FanAccessory', () => {
   it('should create an instance', () => {

@@ -3,7 +3,7 @@ import { VirtualRemoteCommand } from '@/types';
 import { Logger } from 'homebridge';
 import mqtt from 'mqtt';
 
-interface MqttApiOptions {
+export interface MqttApiOptions {
   ip: string;
   port: number;
   username?: string;
