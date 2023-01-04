@@ -724,6 +724,9 @@ export class FanAccessory {
    *
    * Do not return anything from this method. Otherwise we'll get this error:
    * SET handler returned write response value, though the characteristic doesn't support write response. See https://homebridge.io/w/JtMGR for more info.
+   *
+   * The value we receive here is the value already set in HomeKit, this method runs after the Characteristic has been set.
+   * So we don't need to set the Characteristic here. We just need to handle any logic that depends on the Characteristic being set.
    */
   handleSetActive(value: CharacteristicValue): void {
     const currentRotationSpeed = this.service.getCharacteristic(
