@@ -32,7 +32,7 @@ import { serialNumberFromUUID } from './utils/serial';
 import { PLUGIN_VERSION } from './version';
 import { debounce } from './utils/debounce';
 
-const SYNC_ROTATION_SPEED_INTERVAL = 5000; // 5 seconds
+const SYNC_ROTATION_SPEED_INTERVAL = 10000; // 10 seconds
 const DEFAULT_DEBOUNCE_INTERVAL = 500; // 500ms
 
 /**
@@ -357,7 +357,7 @@ export class FanAccessory {
       this.lastManuallySetRotationSpeedTimestamp &&
       Date.now() - this.lastManuallySetRotationSpeedTimestamp < SYNC_ROTATION_SPEED_INTERVAL
     ) {
-      this.log.debug('Do not sync, last sync was less than 5 seconds ago...');
+      this.log.debug('Do not sync, last sync was less than 10 seconds ago...');
       return;
     }
 
@@ -396,6 +396,29 @@ export class FanAccessory {
 
     // Keep the Active characteristic in sync with the real speed of the fan unit.
     // this.syncActive(statusPayload);
+
+    // Prevent syncing when the fan is recently controlled manually. This is to prevent the fan characteristics to be overwritten by the status response.
+    // We expect the fan to reach the desired speed within 10 seconds.
+    if (
+      this.lastManuallySetRotationSpeedTimestamp &&
+      Date.now() - this.lastManuallySetRotationSpeedTimestamp < SYNC_ROTATION_SPEED_INTERVAL
+    ) {
+      this.log.debug('Do not sync, last sync was less than 10 seconds ago...');
+      return;
+    }
+
+    const currentSpeedStatus: number = statusPayload[SPEED_STATUS_KEY] || 0;
+
+    if (!this.allowsManualSpeedControl) {
+      const fanInfo = !isNil(statusPayload[FAN_INFO_KEY]) ? statusPayload[FAN_INFO_KEY] : 'medium';
+      const mappedRotationSpeed = getMappedRotationSpeedFromFanInfo(fanInfo);
+      const virtualRemoteCommand = getVirtualRemoteCommandForRotationSpeed(mappedRotationSpeed);
+
+      this.syncCharacteristicsByRotationSpeed(mappedRotationSpeed, virtualRemoteCommand);
+      return;
+    }
+
+    this.syncCharacteristicsByRotationSpeed(currentSpeedStatus);
   }
 
   handleSpeedResponse(speed: number) {
@@ -403,59 +426,59 @@ export class FanAccessory {
     this.lastStatePayloadTimestamp = Date.now();
   }
 
-  syncActive(statusPayload: IthoCveStatusSanitizedPayload): void {
-    const loggerPrefix = '[Sync Active]';
+  // syncActive(statusPayload: IthoCveStatusSanitizedPayload): void {
+  //   const loggerPrefix = '[Sync Active]';
 
-    if (
-      this.lastManuallySetActiveTimestamp &&
-      Date.now() - this.lastManuallySetActiveTimestamp < SYNC_ROTATION_SPEED_INTERVAL
-    ) {
-      this.log.debug(loggerPrefix, 'Do not sync, last sync was less than 5 seconds ago...');
-      return;
-    }
+  //   if (
+  //     this.lastManuallySetActiveTimestamp &&
+  //     Date.now() - this.lastManuallySetActiveTimestamp < SYNC_ROTATION_SPEED_INTERVAL
+  //   ) {
+  //     this.log.debug(loggerPrefix, 'Do not sync, last sync was less than 5 seconds ago...');
+  //     return;
+  //   }
 
-    const currentActiveValue = this.service.getCharacteristic(
-      this.platform.Characteristic.Active,
-    ).value;
+  //   const currentActiveValue = this.service.getCharacteristic(
+  //     this.platform.Characteristic.Active,
+  //   ).value;
 
-    const activeName = this.getActiveName(currentActiveValue as number);
+  //   const activeName = this.getActiveName(currentActiveValue as number);
 
-    const currentSpeedStatus: number = statusPayload[SPEED_STATUS_KEY] || 0;
-    const fanInfo = statusPayload[FAN_INFO_KEY];
+  //   const currentSpeedStatus: number = statusPayload[SPEED_STATUS_KEY] || 0;
+  //   const fanInfo = statusPayload[FAN_INFO_KEY];
 
-    if (fanInfo !== 'medium' && fanInfo !== 'auto') {
-      const activeStateByRotationSpeed = this.getActiveStateByRotationSpeed(currentSpeedStatus);
+  //   if (fanInfo !== 'medium' && fanInfo !== 'auto') {
+  //     const activeStateByRotationSpeed = this.getActiveStateByRotationSpeed(currentSpeedStatus);
 
-      if (activeStateByRotationSpeed === currentActiveValue) {
-        this.log.debug(`${loggerPrefix} Active: Already set to: ${activeName}. Ignoring sync.`);
-        return;
-      }
+  //     if (activeStateByRotationSpeed === currentActiveValue) {
+  //       this.log.debug(`${loggerPrefix} Active: Already set to: ${activeName}. Ignoring sync.`);
+  //       return;
+  //     }
 
-      const activeStateByRotationSpeedName = this.getActiveName(activeStateByRotationSpeed);
+  //     const activeStateByRotationSpeedName = this.getActiveName(activeStateByRotationSpeed);
 
-      this.log.debug(`${loggerPrefix} Active: Setting to: ${activeStateByRotationSpeedName}`);
+  //     this.log.debug(`${loggerPrefix} Active: Setting to: ${activeStateByRotationSpeedName}`);
 
-      this.service.updateCharacteristic(
-        this.platform.Characteristic.Active,
-        activeStateByRotationSpeed,
-      );
+  //     this.service.updateCharacteristic(
+  //       this.platform.Characteristic.Active,
+  //       activeStateByRotationSpeed,
+  //     );
 
-      return;
-    }
+  //     return;
+  //   }
 
-    if (currentActiveValue === this.platform.Characteristic.Active.ACTIVE) {
-      this.log.debug(`${loggerPrefix} Active: Already set to: ${activeName}. Ignoring sync.`);
-      return;
-    }
+  //   if (currentActiveValue === this.platform.Characteristic.Active.ACTIVE) {
+  //     this.log.debug(`${loggerPrefix} Active: Already set to: ${activeName}. Ignoring sync.`);
+  //     return;
+  //   }
 
-    this.log.debug(`${loggerPrefix} Active: Setting to: ACTIVE`);
+  //   this.log.debug(`${loggerPrefix} Active: Setting to: ACTIVE`);
 
-    // FanInfo is medium or auto, always set to active.
-    this.service.updateCharacteristic(
-      this.platform.Characteristic.Active,
-      this.platform.Characteristic.Active.ACTIVE,
-    );
-  }
+  //   // FanInfo is medium or auto, always set to active.
+  //   this.service.updateCharacteristic(
+  //     this.platform.Characteristic.Active,
+  //     this.platform.Characteristic.Active.ACTIVE,
+  //   );
+  // }
 
   /**
    * Sync the RotationSpeed characteristic with the real speed of the fan unit.
@@ -476,102 +499,102 @@ export class FanAccessory {
    *
    * The sync timer is reset when the speed is changed through HomeKit.
    */
-  async syncRotationSpeed(statusPayload: IthoCveStatusSanitizedPayload): Promise<void> {
-    const loggerPrefix = '[Sync Rotation Speed]';
+  // async syncRotationSpeed(statusPayload: IthoCveStatusSanitizedPayload): Promise<void> {
+  //   const loggerPrefix = '[Sync Rotation Speed]';
 
-    if (
-      this.lastManuallySetRotationSpeedTimestamp &&
-      Date.now() - this.lastManuallySetRotationSpeedTimestamp < SYNC_ROTATION_SPEED_INTERVAL
-    ) {
-      this.log.debug(loggerPrefix, 'Do not sync, last sync was less than 5 seconds ago...');
-      return;
-    }
+  //   if (
+  //     this.lastManuallySetRotationSpeedTimestamp &&
+  //     Date.now() - this.lastManuallySetRotationSpeedTimestamp < SYNC_ROTATION_SPEED_INTERVAL
+  //   ) {
+  //     this.log.debug(loggerPrefix, 'Do not sync, last sync was less than 5 seconds ago...');
+  //     return;
+  //   }
 
-    const currentRotationSpeed = this.service.getCharacteristic(
-      this.platform.Characteristic.RotationSpeed,
-    ).value;
+  //   const currentRotationSpeed = this.service.getCharacteristic(
+  //     this.platform.Characteristic.RotationSpeed,
+  //   ).value;
 
-    // TODO: support non CVE units that do not have this key
-    const speedPercentageRounded = Math.ceil(Number(statusPayload[SPEED_STATUS_KEY])); // a value between 0 and 50
+  //   // TODO: support non CVE units that do not have this key
+  //   const speedPercentageRounded = Math.ceil(Number(statusPayload[SPEED_STATUS_KEY])); // a value between 0 and 50
 
-    this.log.debug(loggerPrefix, `Speed Status is: ${speedPercentageRounded}`);
+  //   this.log.debug(loggerPrefix, `Speed Status is: ${speedPercentageRounded}`);
 
-    if (!this.allowsManualSpeedControl) {
-      // The unit does not allow manual speed control
+  //   if (!this.allowsManualSpeedControl) {
+  //     // The unit does not allow manual speed control
 
-      // TODO: support non-cve devices with other key
+  //     // TODO: support non-cve devices with other key
 
-      const fanInfo = statusPayload?.[FAN_INFO_KEY];
+  //     const fanInfo = statusPayload?.[FAN_INFO_KEY];
 
-      if (isNil(fanInfo)) {
-        this.log.warn(loggerPrefix, `${FAN_INFO_KEY} property not found, ignoring.`);
+  //     if (isNil(fanInfo)) {
+  //       this.log.warn(loggerPrefix, `${FAN_INFO_KEY} property not found, ignoring.`);
 
-        return;
-      }
+  //       return;
+  //     }
 
-      this.log.debug(loggerPrefix, `FanInfo is: ${fanInfo}`);
+  //     this.log.debug(loggerPrefix, `FanInfo is: ${fanInfo}`);
 
-      // FanInfo is low, medium/auto or high
+  //     // FanInfo is low, medium/auto or high
 
-      // If the rotation speed is already set, we can ignore the sync
-      if (currentRotationSpeed === speedPercentageRounded) {
-        this.log.debug(
-          loggerPrefix,
-          `RotationSpeed already set to ${speedPercentageRounded}. Ignoring sync.`,
-        );
-        return;
-      }
+  //     // If the rotation speed is already set, we can ignore the sync
+  //     if (currentRotationSpeed === speedPercentageRounded) {
+  //       this.log.debug(
+  //         loggerPrefix,
+  //         `RotationSpeed already set to ${speedPercentageRounded}. Ignoring sync.`,
+  //       );
+  //       return;
+  //     }
 
-      // If FanInfo is medium/auto or high, but the speed percentage we received is 100 or 0, we should just sync to that exact rotation speed
-      if (speedPercentageRounded === 100 || speedPercentageRounded === 0) {
-        this.log.info(loggerPrefix, `Syncing RotationSpeed to: ${speedPercentageRounded}`);
+  //     // If FanInfo is medium/auto or high, but the speed percentage we received is 100 or 0, we should just sync to that exact rotation speed
+  //     if (speedPercentageRounded === 100 || speedPercentageRounded === 0) {
+  //       this.log.info(loggerPrefix, `Syncing RotationSpeed to: ${speedPercentageRounded}`);
 
-        this.service.updateCharacteristic(
-          this.platform.Characteristic.RotationSpeed,
-          speedPercentageRounded,
-        );
+  //       this.service.updateCharacteristic(
+  //         this.platform.Characteristic.RotationSpeed,
+  //         speedPercentageRounded,
+  //       );
 
-        return;
-      }
+  //       return;
+  //     }
 
-      // FanInfo is medium/auto or high, but the speed percentage is not 100 or 0
+  //     // FanInfo is medium/auto or high, but the speed percentage is not 100 or 0
 
-      // Because we can't manually control the speed from 0 - 100, we should determine the speed from the FanInfo mapping
-      const mappedRotationSpeed = getMappedRotationSpeedFromFanInfo(fanInfo);
+  //     // Because we can't manually control the speed from 0 - 100, we should determine the speed from the FanInfo mapping
+  //     const mappedRotationSpeed = getMappedRotationSpeedFromFanInfo(fanInfo);
 
-      // If already set, we can ignore
-      if (currentRotationSpeed === mappedRotationSpeed) {
-        this.log.debug(
-          loggerPrefix,
-          `RotationSpeed already set to mapped rotation speed ${mappedRotationSpeed} (${fanInfo}). Ignoring sync.`,
-        );
-        return;
-      }
+  //     // If already set, we can ignore
+  //     if (currentRotationSpeed === mappedRotationSpeed) {
+  //       this.log.debug(
+  //         loggerPrefix,
+  //         `RotationSpeed already set to mapped rotation speed ${mappedRotationSpeed} (${fanInfo}). Ignoring sync.`,
+  //       );
+  //       return;
+  //     }
 
-      this.log.debug(
-        loggerPrefix,
-        `Syncing RotationSpeed to mapped rotation speed: ${mappedRotationSpeed} (${fanInfo})`,
-      );
+  //     this.log.debug(
+  //       loggerPrefix,
+  //       `Syncing RotationSpeed to mapped rotation speed: ${mappedRotationSpeed} (${fanInfo})`,
+  //     );
 
-      this.service.updateCharacteristic(
-        this.platform.Characteristic.RotationSpeed,
-        mappedRotationSpeed,
-      );
+  //     this.service.updateCharacteristic(
+  //       this.platform.Characteristic.RotationSpeed,
+  //       mappedRotationSpeed,
+  //     );
 
-      return;
-    }
+  //     return;
+  //   }
 
-    // TODO: when we end up here, the user has full manual control (0 - 100) in HomeKit, should we keep sync with itho/state instead?
+  //   // TODO: when we end up here, the user has full manual control (0 - 100) in HomeKit, should we keep sync with itho/state instead?
 
-    this.log.info(loggerPrefix, `Syncing rotation speed to: ${speedPercentageRounded}`);
+  //   this.log.info(loggerPrefix, `Syncing rotation speed to: ${speedPercentageRounded}`);
 
-    this.service.updateCharacteristic(
-      this.platform.Characteristic.RotationSpeed,
-      speedPercentageRounded,
-    );
+  //   this.service.updateCharacteristic(
+  //     this.platform.Characteristic.RotationSpeed,
+  //     speedPercentageRounded,
+  //   );
 
-    this.log.debug(loggerPrefix, `Waiting for next sync interval...`);
-  }
+  //   this.log.debug(loggerPrefix, `Waiting for next sync interval...`);
+  // }
 
   /**
    * User manually changed the rotation speed in the Home App.

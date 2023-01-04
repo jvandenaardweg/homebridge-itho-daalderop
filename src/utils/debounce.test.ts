@@ -10,6 +10,7 @@ describe('utils/debounce', () => {
       vi.clearAllTimers();
     });
     it('should return a function', () => {
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       expect(typeof debounce(() => {}, 100)).toEqual('function');
     });
 
