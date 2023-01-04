@@ -1,7 +1,7 @@
 import { Characteristic } from 'hap-nodejs';
 import { ConfigSchema } from './config.schema';
 import { FanAccessory } from './fan-accessory';
-import { mockSanitizedStatusPayload } from './mocks/mqtt-payloads';
+import { mockSanitizedStatusPayload } from './mocks/api-payloads';
 import { accessoryMock, platformMock } from './mocks/platform';
 import {
   PLATFORM_NAME,
