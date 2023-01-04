@@ -11,7 +11,7 @@ import { request } from 'undici';
 
 export const DEFAULT_POLLING_INTERVAL = 5000; // every 5 seconds
 
-interface HttpApiOptions {
+export interface HttpApiOptions {
   ip: string;
   username?: string;
   password?: string;
