@@ -527,7 +527,17 @@ export class FanAccessory {
     if (this.mqttApiClient) {
       rotationSpeedNumber = this.lastStatePayload || 0;
     } else {
-      rotationSpeedNumber = await this.httpApiClient.getSpeed();
+      try {
+        rotationSpeedNumber = await this.httpApiClient.getSpeed();
+        throw new Error('some error');
+      } catch (error) {
+        this.log.error(
+          'Failed to get RotationSpeed from the Itho Wifi module. Make sure the Itho Wifi module has a stable wifi connection and try again. Will return 0 as the RotationSpeed for now.',
+          JSON.stringify(error),
+        );
+
+        return 0;
+      }
     }
 
     const rotationSpeed = Math.round(Number(rotationSpeedNumber) / 2.54);
