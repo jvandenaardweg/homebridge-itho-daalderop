@@ -529,7 +529,6 @@ export class FanAccessory {
     } else {
       try {
         rotationSpeedNumber = await this.httpApiClient.getSpeed();
-        throw new Error('some error');
       } catch (error) {
         this.log.error(
           'Failed to get RotationSpeed from the Itho Wifi module. Make sure the Itho Wifi module has a stable wifi connection and try again. Will return 0 as the RotationSpeed for now.',
