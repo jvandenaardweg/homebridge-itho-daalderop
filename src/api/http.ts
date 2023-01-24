@@ -7,8 +7,18 @@ import {
 import { sanitizeStatusPayload } from '@/utils/api';
 import EventEmitter from 'events';
 import { Logger } from 'homebridge';
-import { request } from 'undici';
+import { request as undiciRequest } from 'undici';
 
+export type RequestParameters = Parameters<typeof undiciRequest>;
+
+const request = (url: RequestParameters[0], options: RequestParameters[1]) => {
+  return undiciRequest(url, {
+    ...options,
+    // 2 second timeout, we are on a local network, so request should be fast
+    bodyTimeout: 2000,
+    headersTimeout: 2000,
+  });
+};
 export const DEFAULT_POLLING_INTERVAL = 5000; // every 5 seconds
 
 interface HttpApiOptions {
