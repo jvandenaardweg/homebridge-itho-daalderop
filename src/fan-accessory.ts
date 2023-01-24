@@ -530,12 +530,17 @@ export class FanAccessory {
       try {
         rotationSpeedNumber = await this.httpApiClient.getSpeed();
       } catch (error) {
+        // If we can't get the speed from the Itho Wifi module, we'll return the last known speed
+        // This is to prevent HomeKit from showing an error when the Itho Wifi module is offline or the wifi connection is unstable
+        // Will default to 0 if no last known speed is available
+        const lastKnownSpeed = this.lastStatePayload || 0;
+
         this.log.error(
-          'Failed to get RotationSpeed from the Itho Wifi module. Make sure the Itho Wifi module has a stable wifi connection and try again. Will return 0 as the RotationSpeed for now.',
+          `Failed to get RotationSpeed from the Itho Wifi module. Make sure the Itho Wifi module has a stable wifi connection and try again. Will return the last known RotationSpeed of ${lastKnownSpeed} for now.`,
           JSON.stringify(error),
         );
 
-        return 0;
+        rotationSpeedNumber = lastKnownSpeed;
       }
     }
 
