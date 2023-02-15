@@ -89,7 +89,7 @@
   },
   "dependencies": {
     "mqtt": "^4.3.7",
-    "undici": "^5.18.0",
+    "undici": "^5.19.1",
     "validator": "^13.9.0",
     "zod": "^3.20.2"
   },
