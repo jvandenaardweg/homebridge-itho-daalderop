@@ -6,7 +6,7 @@
   &nbsp;
   <a href="https://github.com/jvandenaardweg/homebridge-itho-daalderop/actions" title="Build and Test result"><img alt="github" src="http://img.shields.io/github/actions/workflow/status/jvandenaardweg/homebridge-itho-daalderop/build-and-test.yml?branch=main&color=%234c1" /></a>
   &nbsp;
-  <a href="https://github.com/homebridge/homebridge/wiki/Verified-Plugins" title="Homebridge verified"><img alt="github" src="https://badgen.net/badge/homebridge/verified/purple)" /></a>
+  <a href="https://github.com/homebridge/homebridge/wiki/Verified-Plugins" title="Verified by Homebridge"><img alt="github" src="https://badgen.net/badge/homebridge/verified/purple" /></a>
   &nbsp;
   <a href="https://github.com/sponsors/jvandenaardweg" title="Sponsor me on GitHub"><img src="https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23db61a2" alt="github sponsor" /></a>
   &nbsp;
