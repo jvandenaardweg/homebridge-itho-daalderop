@@ -69,7 +69,7 @@
   ],
   "devDependencies": {
     "@types/node": "^18.14.0",
-    "@types/validator": "^13.7.12",
+    "@types/validator": "^13.7.14",
     "@typescript-eslint/eslint-plugin": "^5.52.0",
     "@typescript-eslint/parser": "^5.52.0",
     "@vitest/coverage-istanbul": "^0.28.5",
