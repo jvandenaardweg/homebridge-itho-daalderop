@@ -78,7 +78,7 @@
     "homebridge": "^1.6.1",
     "husky": "^8.0.3",
     "is-ci": "^3.0.1",
-    "lint-staged": "^13.2.2",
+    "lint-staged": "^15.0.2",
     "nodemon": "^2.0.22",
     "prettier": "^2.8.7",
     "release-it": "^15.11.0",
